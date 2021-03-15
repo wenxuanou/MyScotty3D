@@ -3,6 +3,8 @@
 #include <set>
 #include <unordered_map>
 
+#include <iostream>     // for debug
+
 #include "../geometry/halfedge.h"
 #include "debug.h"
 
@@ -76,8 +78,185 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::collapse_face(Halfedge_Me
 */
 std::optional<Halfedge_Mesh::EdgeRef> Halfedge_Mesh::flip_edge(Halfedge_Mesh::EdgeRef e) {
 
-    (void)e;
-    return std::nullopt;
+    //(void)e;
+    //return std::nullopt;
+    
+    // check if edge on boundary
+    if(e -> on_boundary()){ return std::nullopt; }
+    
+    // collect neighbours info
+    std::vector<HalfedgeRef> h_list;    // HALFEDGES
+    std::vector<VertexRef> v_list;      // VERTICES
+    std::vector<EdgeRef> e_list;        // EDGES
+    std::vector<FaceRef> f_list;        // FACES
+    
+    
+    // HALFEDGES
+    size_t count_halfedge = 0;             // record how many halfedges around a single face
+    
+    HalfedgeRef h = e -> halfedge();
+    do{
+        h_list.push_back(h);
+        count_halfedge++;
+        h = h -> next();
+    }while(h != e -> halfedge());
+    // finished circling a face
+    h = h -> twin();    // go to another side, h_list[0] -> twin() == h_list[halfedge]
+    do{
+        h_list.push_back(h);
+        h = h -> next();
+    }while(h != h_list[count_halfedge]);
+    
+    size_t num_halfedge = h_list.size();     // record total number of inner halfedge of both faces
+    
+    // include all twins on the outer circle
+    for(size_t count = 1; count < count_halfedge; count++){
+        h_list.push_back(h_list[count] -> twin());
+    }
+    for(size_t count = count_halfedge + 1; count < num_halfedge; count++){  // skip twin of e0
+        h_list.push_back(h_list[count] -> twin());
+    }
+    
+    // VERTICES
+    // around one face
+    for(size_t count = 0; count < count_halfedge; count++){
+        v_list.push_back(h_list[count] -> vertex());
+    }
+    // around another face
+    for(size_t count = count_halfedge + 2; count < num_halfedge; count++){   // skip two vertice of e0
+        v_list.push_back(h_list[count] -> vertex());
+    }
+        
+    // EDGES
+    for(size_t count = 0; count < count_halfedge; count++){
+        e_list.push_back(h_list[count] -> edge());
+    }
+    for(size_t count = count_halfedge + 1; count < num_halfedge; count++){   // skip two vertice of e0
+        e_list.push_back(h_list[count] -> edge());
+    }
+    
+    
+    // around another face
+    for(size_t count = count_halfedge + 1; count < num_halfedge; count++){   // skip e0
+        e_list.push_back(h_list[count] -> edge());
+    }
+    
+    // FACES
+    // always has two faces in edge flip
+    f_list.push_back(h_list[0] -> face());
+    f_list.push_back(h_list[3] -> face());
+    
+    
+    //std::cout << "count_halfedge: " << count_halfedge << " num_halfedge: " << num_halfedge << std::endl;
+    //std::cout << "is h_list[count_halfedge] matched: " << (h_list[count_halfedge] == h_list[0] -> twin()) << std::endl;
+    
+    // reassign elements (triangle only for now)
+    // HALFEDGES
+    h_list[0] -> next() = h_list[2];
+    h_list[0] -> twin() = h_list[count_halfedge];
+    h_list[0] -> vertex() = v_list[count_halfedge];
+    h_list[0] -> edge() = e_list[0];
+    h_list[0] -> face() = f_list[0];
+    
+    h_list[1] -> next() = h_list[count_halfedge];
+    /*
+    h_list[1] -> twin() = h_list[6];    // same
+    h_list[1] -> vertex() = v_list[1];  // same
+    h_list[1] -> edge() = e_list[1];    // same
+    */
+    h_list[1] -> face() = f_list[1];
+    
+     
+    h_list[2] -> next() = h_list[count_halfedge + 1];
+    /*
+    h_list[2] -> twin() = h_list[7];    // same
+    h_list[2] -> vertex() = v_list[2];  // same
+    h_list[2] -> edge() = e_list[2];    // same
+    h_list[2] -> face() = f_list[0];    // same
+    */
+    
+    h_list[count_halfedge] -> next() = h_list[num_halfedge - 1];
+    h_list[count_halfedge] -> twin() = h_list[0];
+    h_list[count_halfedge] -> vertex() = v_list[2];
+    h_list[count_halfedge] -> edge() = e_list[0];
+    h_list[count_halfedge] -> face() = f_list[1];
+    
+    h_list[count_halfedge + 1] -> next() = h_list[0];
+    /*
+    h_list[4] -> twin() = h_list[8];    // same
+    h_list[4] -> vertex() = v_list[0];  // same
+    h_list[4] -> edge() = e_list[count_halfedge];    // same
+     */
+    h_list[count_halfedge + 1] -> face() = f_list[0];
+    
+    h_list[num_halfedge - 1] -> next() = h_list[1];
+    /*
+    h_list[5] -> twin() = h_list[9];    // same
+    h_list[5] -> vertex() = v_list[count_halfedge];  // same
+    h_list[5] -> edge() = e_list[4];    // same
+    h_list[5] -> face() = f_list[1];    // same
+    */
+    
+    for(size_t count = 1; count < count_halfedge; count++){
+        h_list[num_halfedge + count - 1] = h_list[count] -> twin();
+    }
+    for(size_t count = count_halfedge + 1; count < num_halfedge; count++){
+        h_list[num_halfedge + count - count_halfedge] = h_list[count] -> twin();
+    }
+    
+    /*
+    h_list[6] = h_list[1] -> twin();
+    h_list[7] = h_list[2] -> twin();
+    h_list[8] = h_list[4] -> twin();
+    h_list[9] = h_list[5] -> twin();
+    */
+     
+    /*
+    h_list[6] -> next() = h_list[6] -> next();
+    h_list[6] -> twin() = h_list[1];
+    h_list[6] -> vertex() = v_list[2];
+    h_list[6] -> edge() = e_list[1];
+    h_list[6] -> face() = h_list[6] -> face();
+    
+    h_list[7] -> next() = h_list[7] -> next();
+    h_list[7] -> twin() = h_list[2];
+    h_list[7] -> vertex() = v_list[0];
+    h_list[7] -> edge() = e_list[2];
+    h_list[7] -> face() = h_list[7] -> face();
+    
+    h_list[8] -> next() = h_list[8] -> next();
+    h_list[8] -> twin() = h_list[4];
+    h_list[8] -> vertex() = v_list[3];
+    h_list[8] -> edge() = e_list[3];
+    h_list[8] -> face() = h_list[8] -> face();
+    
+    h_list[9] -> next() = h_list[9] -> next();
+    h_list[9] -> twin() = h_list[5];
+    h_list[9] -> vertex() = v_list[1];
+    h_list[9] -> edge() = e_list[4];
+    h_list[9] -> face() = h_list[9] -> face();
+    */
+     
+    // VERTICES
+    v_list[0] -> halfedge() = h_list[4];
+    v_list[1] -> halfedge() = h_list[1];
+    v_list[2] -> halfedge() = h_list[2];
+    v_list[3] -> halfedge() = h_list[5];
+    
+    
+    // EDGES
+    for(size_t count = 0; count < count_halfedge; count++){
+        e_list[count] -> halfedge() = h_list[count];
+    }
+    for(size_t count = count_halfedge + 1; count < num_halfedge; count++){
+        e_list[count - 1] -> halfedge() = h_list[count];
+    }
+    
+    // FACES
+    f_list[0] -> halfedge() = h_list[0];
+    f_list[1] -> halfedge() = h_list[3];
+    
+    return e;
 }
 
 /*
