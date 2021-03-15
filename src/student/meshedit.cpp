@@ -3,7 +3,7 @@
 #include <set>
 #include <unordered_map>
 
-#include <iostream>     // for debug
+//#include <iostream>     // for debug
 
 #include "../geometry/halfedge.h"
 #include "debug.h"
@@ -147,9 +147,6 @@ std::optional<Halfedge_Mesh::EdgeRef> Halfedge_Mesh::flip_edge(Halfedge_Mesh::Ed
     f_list.push_back(h_list[3] -> face());
     
     
-    //std::cout << "count_halfedge: " << count_halfedge << " num_halfedge: " << num_halfedge << std::endl;
-    //std::cout << "is h_list[count_halfedge] matched: " << (h_list[count_halfedge] == h_list[0] -> twin()) << std::endl;
-    
     // reassign elements (triangle only for now)
     // HALFEDGES
     h_list[0] -> next() = h_list[2];
@@ -159,21 +156,10 @@ std::optional<Halfedge_Mesh::EdgeRef> Halfedge_Mesh::flip_edge(Halfedge_Mesh::Ed
     h_list[0] -> face() = f_list[0];
     
     h_list[1] -> next() = h_list[count_halfedge];
-    /*
-    h_list[1] -> twin() = h_list[6];    // same
-    h_list[1] -> vertex() = v_list[1];  // same
-    h_list[1] -> edge() = e_list[1];    // same
-    */
     h_list[1] -> face() = f_list[1];
     
      
     h_list[2] -> next() = h_list[count_halfedge + 1];
-    /*
-    h_list[2] -> twin() = h_list[7];    // same
-    h_list[2] -> vertex() = v_list[2];  // same
-    h_list[2] -> edge() = e_list[2];    // same
-    h_list[2] -> face() = f_list[0];    // same
-    */
     
     h_list[count_halfedge] -> next() = h_list[num_halfedge - 1];
     h_list[count_halfedge] -> twin() = h_list[0];
@@ -182,20 +168,9 @@ std::optional<Halfedge_Mesh::EdgeRef> Halfedge_Mesh::flip_edge(Halfedge_Mesh::Ed
     h_list[count_halfedge] -> face() = f_list[1];
     
     h_list[count_halfedge + 1] -> next() = h_list[0];
-    /*
-    h_list[4] -> twin() = h_list[8];    // same
-    h_list[4] -> vertex() = v_list[0];  // same
-    h_list[4] -> edge() = e_list[count_halfedge];    // same
-     */
     h_list[count_halfedge + 1] -> face() = f_list[0];
     
     h_list[num_halfedge - 1] -> next() = h_list[1];
-    /*
-    h_list[5] -> twin() = h_list[9];    // same
-    h_list[5] -> vertex() = v_list[count_halfedge];  // same
-    h_list[5] -> edge() = e_list[4];    // same
-    h_list[5] -> face() = f_list[1];    // same
-    */
     
     for(size_t count = 1; count < count_halfedge; count++){
         h_list[num_halfedge + count - 1] = h_list[count] -> twin();
@@ -204,38 +179,6 @@ std::optional<Halfedge_Mesh::EdgeRef> Halfedge_Mesh::flip_edge(Halfedge_Mesh::Ed
         h_list[num_halfedge + count - count_halfedge] = h_list[count] -> twin();
     }
     
-    /*
-    h_list[6] = h_list[1] -> twin();
-    h_list[7] = h_list[2] -> twin();
-    h_list[8] = h_list[4] -> twin();
-    h_list[9] = h_list[5] -> twin();
-    */
-     
-    /*
-    h_list[6] -> next() = h_list[6] -> next();
-    h_list[6] -> twin() = h_list[1];
-    h_list[6] -> vertex() = v_list[2];
-    h_list[6] -> edge() = e_list[1];
-    h_list[6] -> face() = h_list[6] -> face();
-    
-    h_list[7] -> next() = h_list[7] -> next();
-    h_list[7] -> twin() = h_list[2];
-    h_list[7] -> vertex() = v_list[0];
-    h_list[7] -> edge() = e_list[2];
-    h_list[7] -> face() = h_list[7] -> face();
-    
-    h_list[8] -> next() = h_list[8] -> next();
-    h_list[8] -> twin() = h_list[4];
-    h_list[8] -> vertex() = v_list[3];
-    h_list[8] -> edge() = e_list[3];
-    h_list[8] -> face() = h_list[8] -> face();
-    
-    h_list[9] -> next() = h_list[9] -> next();
-    h_list[9] -> twin() = h_list[5];
-    h_list[9] -> vertex() = v_list[1];
-    h_list[9] -> edge() = e_list[4];
-    h_list[9] -> face() = h_list[9] -> face();
-    */
      
     // VERTICES
     v_list[0] -> halfedge() = h_list[4];
