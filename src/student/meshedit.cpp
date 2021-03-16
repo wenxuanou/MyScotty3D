@@ -3,7 +3,7 @@
 #include <set>
 #include <unordered_map>
 
-//#include <iostream>     // for debug
+#include <iostream>     // for debug
 
 #include "../geometry/halfedge.h"
 #include "debug.h"
@@ -37,9 +37,156 @@
     edges and faces with a single face, returning the new face.
  */
 std::optional<Halfedge_Mesh::FaceRef> Halfedge_Mesh::erase_vertex(Halfedge_Mesh::VertexRef v) {
+    
+    if(v -> on_boundary()){ return std::nullopt; }
+    
+    // collect neighbours info
+    std::vector<HalfedgeRef> h_list;    // HALFEDGES
+    std::vector<VertexRef> v_list;      // VERTICES
+    std::vector<EdgeRef> e_list;        // EDGES
+    std::vector<FaceRef> f_list;        // FACES
+    
+    // HALFEDGES
+    size_t num_neighbourHalfedge = 0;   // record number of halfedge connected to the vertex
+    std::vector<int> num_edgeInFace;    // count number of halfedges in each neighbour faces not connected to the vertex, CUMULATIVE
+    num_edgeInFace.push_back(0);
+    
+    HalfedgeRef h = v -> halfedge();
+    do{
+        h_list.push_back(h);
+        h_list.push_back(h -> twin());
+        h = h -> twin() -> next();
+        
+        num_neighbourHalfedge++;
+    }while(h != v -> halfedge());
+    int count_edge = 0;
+    do{
+        HalfedgeRef h_temp = h;
+        do{
+            h_temp = h_temp -> next();
+            h_list.push_back(h_temp);
+            h_list.push_back(h_temp -> twin());
+            
+            count_edge++;
+        }while(h_temp -> next() -> next() != h);
+        
+        num_edgeInFace.push_back(count_edge);   // cumulative
+        h = h -> twin() -> next();
+    }while(h != v -> halfedge());
+    
+    num_edgeInFace.push_back(num_edgeInFace[0]);    // handle loop
+    
 
-    (void)v;
-    return std::nullopt;
+    // VERTICES
+    v_list.push_back(v);
+    do{
+        HalfedgeRef h_temp = h;
+        do{
+            h_temp = h_temp -> next();
+            v_list.push_back(h_temp -> vertex());
+        }while(h_temp -> next() -> next() != h);
+        h = h -> twin() -> next();
+    }while(h != v -> halfedge());
+    
+    // EDGES
+    do{
+        e_list.push_back(h -> edge());
+        h = h -> twin() -> next();
+    }while(h != v -> halfedge());
+    do{
+        HalfedgeRef h_temp = h;
+        do{
+            h_temp = h_temp -> next();
+            e_list.push_back(h_temp -> edge());
+        }while(h_temp -> next() -> next() != h);
+        h = h -> twin() -> next();
+    }while(h != v -> halfedge());
+    
+    // FACES
+    do{
+        f_list.push_back(h -> face());
+        h = h -> twin() -> next();
+    }while(h != v -> halfedge());
+    
+    
+    //std::cout << "h_list.size(): " << h_list.size() << std::endl;
+    //std::cout << "num_neighbourHalfedge: " << num_neighbourHalfedge << std::endl;
+    
+    // reassign elements
+    // HALFEDGES
+    for(size_t count = 0; count < num_neighbourHalfedge; count++){
+        unsigned int id_from = (num_neighbourHalfedge + num_edgeInFace[count + 1]) * 2;
+        unsigned int id_to = (num_neighbourHalfedge + num_edgeInFace[count]) * 2;
+        
+        if(id_from >= h_list.size()){
+            id_from = id_from % h_list.size() + num_neighbourHalfedge * 2; // prevent overflow, loop back
+        }
+        
+        std::cout << "id_from: " << id_from << " id_to: " << id_to << std::endl;
+        
+        h_list[id_from] -> next() = h_list[id_to];
+        h_list[id_from] -> twin() = h_list[id_from + 1];
+        h_list[id_from] -> face() = f_list[0];
+        
+        h_list[id_from + 1] -> twin() = h_list[id_from];
+        
+    }
+    
+    //std::cout << "v_list.size(): " << v_list.size() << std::endl;
+        
+    // VERTICES
+    // should not changes, will remove v0
+    for(size_t count = 1; count < v_list.size(); count++){
+        unsigned int halfedgeId = (num_neighbourHalfedge + num_edgeInFace[count - 1]) * 2;
+        unsigned int vertexId = count;
+        
+        v_list[vertexId] -> halfedge() = h_list[halfedgeId];
+        
+        //std::cout << "vertexId: " << vertexId << " halfedgeId: " << halfedgeId <<  std::endl;
+        
+    }
+    
+    // EDGES
+    // should not changes, will remove those connected to v
+    
+    // FACES
+    f_list[0] -> halfedge() = h_list[(num_neighbourHalfedge + 1) * 2];
+    
+    /*
+    for(size_t count = 1; count < f_list.size(); count++){
+        unsigned int halfedgeId = (num_neighbourHalfedge + num_edgeInFace[count - 1]) * 2;
+        unsigned int faceId = count;
+        
+        f_list[vertexId] -> halfedge() = h_list[halfedgeId];
+        
+        std::cout << "faceId: " << faceId << " halfedgeId: " << halfedgeId <<  std::endl;
+        
+    }
+     */
+    
+    
+    // remove elements
+    // HALFEDGES
+    for(size_t count = 0; count < num_neighbourHalfedge; count++){
+        erase(h_list[count * 2]);
+        erase(h_list[count * 2 + 1]);
+    }
+    
+    // VERTICES
+    erase(v_list[0]);
+    
+    // EDGES
+    for(size_t count = 0; count < num_neighbourHalfedge; count++){
+        erase(e_list[count]);
+    }
+    
+    // FACES
+    for(size_t count = 1; count < f_list.size(); count++){
+        erase(f_list[count]);
+    }
+    
+    return f_list[0];
+    
 }
 
 /*
@@ -77,9 +224,6 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::collapse_face(Halfedge_Me
     flipped edge.
 */
 std::optional<Halfedge_Mesh::EdgeRef> Halfedge_Mesh::flip_edge(Halfedge_Mesh::EdgeRef e) {
-
-    //(void)e;
-    //return std::nullopt;
     
     // check if edge on boundary
     if(e -> on_boundary()){ return std::nullopt; }
@@ -181,10 +325,10 @@ std::optional<Halfedge_Mesh::EdgeRef> Halfedge_Mesh::flip_edge(Halfedge_Mesh::Ed
     
      
     // VERTICES
-    v_list[0] -> halfedge() = h_list[4];
-    v_list[1] -> halfedge() = h_list[1];
-    v_list[2] -> halfedge() = h_list[2];
-    v_list[3] -> halfedge() = h_list[5];
+    v_list[0] -> halfedge() = h_list[count_halfedge + 1];
+    //v_list[1] -> halfedge() = h_list[1];
+    //v_list[count_halfedge - 1] -> halfedge() = h_list[count_halfedge - 1];
+    v_list[count_halfedge] -> halfedge() = h_list[num_halfedge - 1];
     
     
     // EDGES
