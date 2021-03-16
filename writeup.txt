@@ -1,3 +1,5 @@
 flip_edge():
-- Fully implemented, should support polygons.
+- Fully implemented, support polygons.
 
+erase_vertex():
+- implemented for standard hex, bug for polygons.
