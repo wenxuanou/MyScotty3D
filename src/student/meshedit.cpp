@@ -122,7 +122,7 @@ std::optional<Halfedge_Mesh::FaceRef> Halfedge_Mesh::erase_vertex(Halfedge_Mesh:
             id_from = id_from % h_list.size() + num_neighbourHalfedge * 2; // prevent overflow, loop back
         }
         
-        std::cout << "id_from: " << id_from << " id_to: " << id_to << std::endl;
+        //std::cout << "id_from: " << id_from << " id_to: " << id_to << std::endl;
         
         h_list[id_from] -> next() = h_list[id_to];
         h_list[id_from] -> twin() = h_list[id_from + 1];
