@@ -453,17 +453,8 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::split_edge(Halfedge_Mesh:
     h_new0 -> edge() = e_new0;
     h_new0 -> face() = f_list[0];
     
-    h_list[2] -> next() = h_list[2] -> next();
-    h_list[2] -> twin() = h_list[2] -> twin();
-    h_list[2] -> vertex() = h_list[2] -> vertex();
-    h_list[2] -> edge() = h_list[2] -> edge();
-    h_list[2] -> face() = h_list[2] -> face();
-    
     h_list[0] -> next() = h_new0;
     h_list[0] -> twin() = h_new5;
-    h_list[0] -> vertex() = h_list[0] -> vertex();
-    h_list[0] -> edge() = h_list[0] -> edge();
-    h_list[0] -> face() = h_list[0] -> face();
     ////
     h_new1 -> next() = h_new4;
     h_new1 -> twin() = h_new0;
@@ -478,9 +469,6 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::split_edge(Halfedge_Mesh:
     h_new4 -> face() = f_new0;
     
     h_list[1] -> next() = h_new1;
-    h_list[1] -> twin() = h_list[1] -> twin();
-    h_list[1] -> vertex() = h_list[1] -> vertex();
-    h_list[1] -> edge() = h_list[1] -> edge();
     h_list[1] -> face() = f_new0;
     ////
     h_new2 -> next() = h_list[5];
@@ -488,18 +476,10 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::split_edge(Halfedge_Mesh:
     h_new2 -> vertex() = v_new;
     h_new2 -> edge() = e_new2;
     h_new2 -> face() = f_list[1];
-
-    h_list[5] -> next() = h_list[5] -> next();
-    h_list[5] -> twin() = h_list[5] -> twin();
-    h_list[5] -> vertex() = h_list[5] -> vertex();
-    h_list[5] -> edge() = h_list[5] -> edge();
-    h_list[5] -> face() = h_list[5] -> face();
     
     h_list[3] -> next() = h_new2;
     h_list[3] -> twin() = h_new4;
-    h_list[3] -> vertex() = h_list[3] -> vertex();
     h_list[3] -> edge() = e_new1;
-    h_list[3] -> face() = h_list[3] -> face();
     ////
     h_new3 -> next() = h_new5;
     h_new3 -> twin() = h_new2;
@@ -514,15 +494,13 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::split_edge(Halfedge_Mesh:
     h_new5 -> face() = f_new1;
     
     h_list[4] -> next() = h_new3;
-    h_list[4] -> twin() = h_list[4] -> twin();
-    h_list[4] -> vertex() = h_list[4] -> vertex();
-    h_list[4] -> edge() = h_list[4] -> edge();
     h_list[4] -> face() = f_new1;
     
     // EDGES
     e_new0 -> halfedge() = h_new0;
     e_new1 -> halfedge() = h_new4;
     e_new2 -> halfedge() = h_new2;
+    e_list[0] -> halfedge() = h_list[0];
     
     // FACES
     f_new0 -> halfedge() = h_new1;
