@@ -204,7 +204,8 @@ std::optional<Halfedge_Mesh::FaceRef> Halfedge_Mesh::erase_edge(Halfedge_Mesh::E
     the new vertex created by the collapse.
 */
 std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::collapse_edge(Halfedge_Mesh::EdgeRef e) {
-
+    
+    //TODO: implement this
     (void)e;
     return std::nullopt;
 }
@@ -340,9 +341,196 @@ std::optional<Halfedge_Mesh::EdgeRef> Halfedge_Mesh::flip_edge(Halfedge_Mesh::Ed
     the edge that was split, rather than the new edges.
 */
 std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::split_edge(Halfedge_Mesh::EdgeRef e) {
+    
+    //TODO: implement this, restricted to triangle
+//    (void)e;
+//    return std::nullopt;
+    
+    // check if edge on boundary
+    if(e -> on_boundary()){ return std::nullopt; }
+    
+    // collect neighbours info
+    std::vector<HalfedgeRef> h_list;    // HALFEDGES
+    std::vector<VertexRef> v_list;      // VERTICES
+    std::vector<EdgeRef> e_list;        // EDGES
+    std::vector<FaceRef> f_list;        // FACES
+    
+    // HALFEDGE
+    HalfedgeRef h = e -> halfedge();
+    size_t num_halfedgeLeft = 0, num_halfedgeRight = 0; // count number of halfedge at left and right side of h0; left + right == total
+    // inner circle
+    do{
+        h_list.push_back(h);
+        h = h -> next();
+        num_halfedgeLeft++;
+    }while(h != e -> halfedge());
+    h = h -> twin();
+    do{
+        h_list.push_back(h);
+        h = h -> next();
+        num_halfedgeRight++;
+    }while(h != e -> halfedge() -> twin());
+    h = e -> halfedge();    // reset pointer
+    // outer circle
+    h = h -> next();        // skip h0
+    do{
+        h_list.push_back(h -> twin());
+        h = h -> next();
+    }while(h != e -> halfedge());
+    h = h -> twin() -> next();  // skip twin of h0
+    do{
+        h_list.push_back(h -> twin());
+        h = h -> next();
+    }while(h != e -> halfedge() -> twin());
+    h = e -> halfedge();    // reset pointer
+    
+    // VERTICES
+    size_t num_verticesLeft = 0, num_verticesRight = 0; // count number of vertices at left and right side of h0; left + right == total
+    do{
+        v_list.push_back(h -> vertex());
+        h = h -> next();
+        num_verticesLeft++;
+    }while(h != e -> halfedge());
+    h = h -> twin() -> next() -> next();    // skip v0 and v1
+    do{
+        v_list.push_back(h -> vertex());
+        h = h -> next();
+        num_verticesRight++;
+    }while(h != e -> halfedge() -> twin());
+    h = e -> halfedge();    // reset pointer
+    
+    // EDGES
+    size_t num_edgeLeft = 0, num_edgeRight = 0; // count number of vertices at left and right side of h0; left + right == total
+    do{
+        e_list.push_back(h -> edge());
+        h = h -> next();
+        num_edgeLeft++;
+    }while(h != e -> halfedge());
+    h = h -> twin() -> next();  // skip e0
+    do{
+        e_list.push_back(h -> edge());
+        h = h -> next();
+        num_edgeRight++;
+    }while(h != e -> halfedge() -> twin());
+    h = e -> halfedge();        // reset pointer
+    
+    // FACES
+    // only two faces in the neighbour
+    f_list.push_back(h -> face());
+    f_list.push_back(h -> twin() -> face());
+    
+    
+    // check whether in triangle, proceed only in triangle
+    if(num_halfedgeLeft > 3 || num_halfedgeRight > 3){ return std::nullopt; }
+    
+    // create new vertex and related elements
+    VertexRef v_new = new_vertex();
+    
+    HalfedgeRef h_new0 = new_halfedge(),
+                h_new1 = new_halfedge(),
+                h_new2 = new_halfedge(),
+                h_new3 = new_halfedge(),
+                h_new4 = new_halfedge(),
+                h_new5 = new_halfedge();
+    
+    EdgeRef e_new0 = new_edge(),
+            e_new1 = new_edge(),
+            e_new2 = new_edge();
+    
+    FaceRef f_new0 = new_face(),
+            f_new1 = new_face();
+    
+    
+    // reassign elements
+    // VERTICES
+    v_new -> pos = ((v_list[0] -> pos) + (v_list[1] -> pos)) / 2;
+    v_new -> halfedge() = h_new0;
+    
+    // HALFEDGES
+    h_new0 -> next() = h_list[2];
+    h_new0 -> twin() = h_new1;
+    h_new0 -> vertex() = v_new;
+    h_new0 -> edge() = e_new0;
+    h_new0 -> face() = f_list[0];
+    
+    h_list[2] -> next() = h_list[2] -> next();
+    h_list[2] -> twin() = h_list[2] -> twin();
+    h_list[2] -> vertex() = h_list[2] -> vertex();
+    h_list[2] -> edge() = h_list[2] -> edge();
+    h_list[2] -> face() = h_list[2] -> face();
+    
+    h_list[0] -> next() = h_new0;
+    h_list[0] -> twin() = h_new5;
+    h_list[0] -> vertex() = h_list[0] -> vertex();
+    h_list[0] -> edge() = h_list[0] -> edge();
+    h_list[0] -> face() = h_list[0] -> face();
+    ////
+    h_new1 -> next() = h_new4;
+    h_new1 -> twin() = h_new0;
+    h_new1 -> vertex() = v_list[2];
+    h_new1 -> edge() = e_new0;
+    h_new1 -> face() = f_new0;
+    
+    h_new4 -> next() = h_list[1];
+    h_new4 -> twin() = h_list[3];
+    h_new4 -> vertex() = v_new;
+    h_new4 -> edge() = e_new1;
+    h_new4 -> face() = f_new0;
+    
+    h_list[1] -> next() = h_new1;
+    h_list[1] -> twin() = h_list[1] -> twin();
+    h_list[1] -> vertex() = h_list[1] -> vertex();
+    h_list[1] -> edge() = h_list[1] -> edge();
+    h_list[1] -> face() = f_new0;
+    ////
+    h_new2 -> next() = h_list[5];
+    h_new2 -> twin() = h_new3;
+    h_new2 -> vertex() = v_new;
+    h_new2 -> edge() = e_new2;
+    h_new2 -> face() = f_list[1];
 
-    (void)e;
-    return std::nullopt;
+    h_list[5] -> next() = h_list[5] -> next();
+    h_list[5] -> twin() = h_list[5] -> twin();
+    h_list[5] -> vertex() = h_list[5] -> vertex();
+    h_list[5] -> edge() = h_list[5] -> edge();
+    h_list[5] -> face() = h_list[5] -> face();
+    
+    h_list[3] -> next() = h_new2;
+    h_list[3] -> twin() = h_new4;
+    h_list[3] -> vertex() = h_list[3] -> vertex();
+    h_list[3] -> edge() = e_new1;
+    h_list[3] -> face() = h_list[3] -> face();
+    ////
+    h_new3 -> next() = h_new5;
+    h_new3 -> twin() = h_new2;
+    h_new3 -> vertex() = v_list[3];
+    h_new3 -> edge() = e_new2;
+    h_new3 -> face() = f_new1;
+    
+    h_new5 -> next() = h_list[4];
+    h_new5 -> twin() = h_list[0];
+    h_new5 -> vertex() = v_new;
+    h_new5 -> edge() = e_list[0];
+    h_new5 -> face() = f_new1;
+    
+    h_list[4] -> next() = h_new3;
+    h_list[4] -> twin() = h_list[4] -> twin();
+    h_list[4] -> vertex() = h_list[4] -> vertex();
+    h_list[4] -> edge() = h_list[4] -> edge();
+    h_list[4] -> face() = f_new1;
+    
+    // EDGES
+    e_new0 -> halfedge() = h_new0;
+    e_new1 -> halfedge() = h_new4;
+    e_new2 -> halfedge() = h_new2;
+    
+    // FACES
+    f_new0 -> halfedge() = h_new1;
+    f_new1 -> halfedge() = h_new5;
+    f_list[0] -> halfedge() = h_list[0];
+    f_list[1] -> halfedge() = h_list[3];
+    
+    return v_new;
 }
 
 /* Note on the beveling process:
@@ -381,7 +569,7 @@ std::optional<Halfedge_Mesh::FaceRef> Halfedge_Mesh::bevel_vertex(Halfedge_Mesh:
 
     // Reminder: You should set the positions of new vertices (v->pos) to be exactly
     // the same as wherever they "started from."
-
+    
     (void)v;
     return std::nullopt;
 }
@@ -417,6 +605,7 @@ std::optional<Halfedge_Mesh::FaceRef> Halfedge_Mesh::bevel_face(Halfedge_Mesh::F
     // Reminder: You should set the positions of new vertices (v->pos) to be exactly
     // the same as wherever they "started from."
 
+    //TODO: implement this
     (void)f;
     return std::nullopt;
     

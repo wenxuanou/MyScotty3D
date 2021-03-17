@@ -2,4 +2,7 @@ flip_edge():
 - Fully implemented, support polygons.
 
 erase_vertex():
-- implemented for standard hex, bug for polygons.
+- Implemented for standard hex, bug for polygons.
+
+split_edge():
+- Fully implemented.
