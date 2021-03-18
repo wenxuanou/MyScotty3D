@@ -204,10 +204,130 @@ std::optional<Halfedge_Mesh::FaceRef> Halfedge_Mesh::erase_edge(Halfedge_Mesh::E
     the new vertex created by the collapse.
 */
 std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::collapse_edge(Halfedge_Mesh::EdgeRef e) {
+
+    // check if edge on boundary
+    if(e -> on_boundary()){ return std::nullopt; }
+    // check if endpoints of the edge on boundary
+    if(e -> halfedge() -> vertex() -> on_boundary()){ return std::nullopt; }
+    if(e -> halfedge() -> twin() -> vertex() -> on_boundary()){ return std::nullopt; }
     
-    //TODO: implement this
-    (void)e;
-    return std::nullopt;
+    // collect neighbours info
+    std::vector<HalfedgeRef> h_listTop, h_listDown;    // HALFEDGES
+    std::vector<VertexRef> v_listTop, v_listDown;      // VERTICES
+    std::vector<EdgeRef> e_listTop, e_listDown;        // EDGES
+    std::vector<FaceRef> f_listTop, f_listDown;        // FACES
+   
+ 
+    // halfedge of e0
+    HalfedgeRef h0 = e -> halfedge(),
+                h1 = e -> halfedge() -> twin();
+    
+    HalfedgeRef hLeft = h0 -> next(),
+                hRight = h1 -> next();
+    
+    // vertex of e0
+    VertexRef v0 = h0 -> vertex(),
+              v1 = h1 -> vertex();
+    
+    // left - top
+    do{
+        // HALFEDGES
+        h_listTop.push_back(hLeft);
+        h_listTop.push_back(hLeft -> twin());
+        // VERTICES
+        v_listTop.push_back(hLeft -> twin() -> vertex());
+        // EDGES
+        e_listTop.push_back(hLeft -> edge());
+        // FACES
+        f_listTop.push_back(hLeft -> face());
+        
+        hLeft = hLeft -> twin() -> next();
+    }while(hLeft != h1);
+    hLeft = h0 -> next();    // reset
+    // right - down
+    do{
+        // HALFEDGES
+        h_listDown.push_back(hRight);
+        h_listDown.push_back(hRight -> twin());
+        // VERTICES
+        v_listDown.push_back(hRight -> twin() -> vertex());
+        // EDGES
+        e_listDown.push_back(hRight -> edge());
+        // FACES
+        f_listDown.push_back(hRight -> face());
+        
+        hRight = hRight -> twin() -> next();
+    }while(hRight != h0);
+    hRight = h1 -> next();    // reset
+    
+    // check whether edge on triangle
+    bool isLeftTriangle = false, isRightTriangle = true;
+    isLeftTriangle = (h_listTop[0] -> next() == h_listDown[h_listDown.size() - 1]);
+    isRightTriangle = (h_listDown[0] -> next() == h_listTop[h_listTop.size() - 1]);
+    
+    std::cout << "isLeftTriangle: " << isLeftTriangle << std::endl;
+    std::cout << "isRightTriangle: " << isRightTriangle << std::endl;
+    // reject triangles for now
+    // TODO: implement this
+    if(isLeftTriangle || isRightTriangle){ return std::nullopt; }
+    
+    // create new element
+    VertexRef v_new = new_vertex();
+    v_new -> pos = ((v0 -> pos) + (v1 -> pos)) / 2;
+    v_new -> halfedge() = hLeft;
+
+    // reassign element
+    size_t num_EdgeTop = h_listTop.size() / 2;
+    size_t num_EdgeDown = h_listDown.size() / 2;
+    // top
+    h_listTop[num_EdgeTop * 2 - 1] -> next() = h_listDown[0];
+    for(size_t count = 0; count < num_EdgeTop; count++){
+        // HALFEDGES
+        h_listTop[count * 2] -> vertex() = v_new;
+        h_listTop[count * 2] -> twin() = h_listTop[count * 2 + 1];
+        h_listTop[count * 2 + 1] -> twin() = h_listTop[count * 2];
+        // VERTICES
+        v_listTop[count] -> halfedge() = h_listTop[count * 2 + 1];
+        // EDGES
+        e_listTop[count] -> halfedge() = h_listTop[count * 2];
+        // FACES
+        f_listTop[count] -> halfedge() = h_listTop[count * 2];
+    }
+    // down
+    h_listDown[num_EdgeDown * 2 - 1] -> next() = h_listTop[0];
+    for(size_t count = 0; count < num_EdgeDown; count++){
+        // HALFEDGES
+        h_listDown[count * 2] -> vertex() = v_new;
+        h_listDown[count * 2] -> twin() = h_listDown[count * 2 + 1];
+        h_listDown[count * 2 + 1] -> twin() = h_listDown[count * 2];
+        // VERTICES
+        v_listDown[count] -> halfedge() = h_listDown[count * 2 + 1];
+        // EDGES
+        e_listDown[count] -> halfedge() = h_listDown[count * 2];
+        // FACES
+        f_listDown[count] -> halfedge() = h_listDown[count * 2];
+    }
+    hLeft -> vertex() = v_new;
+    hRight -> vertex() = v_new;
+    
+
+    // erase element
+    // check halfedge
+    std::cout << "v0 halfedge is h0: " << ((v0 -> halfedge()) == h0) << std::endl;
+    std::cout << "v1 halfedge is h1: " << ((v1 -> halfedge()) == h1) << std::endl;
+    // VERTICES
+    erase(v0);
+    erase(v1);
+    // HALFEDGE
+    erase(h0);
+    erase(h1);
+    // EDGE
+    erase(e);
+    
+    return v_new;
+    
+    //return std::nullopt;
+
 }
 
 /*

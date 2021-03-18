@@ -6,3 +6,6 @@ erase_vertex():
 
 split_edge():
 - Fully implemented.
+
+collapse_edge():
+- Still working.
