@@ -264,12 +264,9 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::collapse_edge(Halfedge_Me
     bool isLeftTriangle = false, isRightTriangle = true;
     isLeftTriangle = (h_listTop[0] -> next() == h_listDown[h_listDown.size() - 1]);
     isRightTriangle = (h_listDown[0] -> next() == h_listTop[h_listTop.size() - 1]);
-    
     std::cout << "isLeftTriangle: " << isLeftTriangle << std::endl;
     std::cout << "isRightTriangle: " << isRightTriangle << std::endl;
-    // reject triangles for now
-    // TODO: implement this
-    if(isLeftTriangle || isRightTriangle){ return std::nullopt; }
+
     
     // create new element
     VertexRef v_new = new_vertex();
@@ -309,12 +306,42 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::collapse_edge(Halfedge_Me
     }
     hLeft -> vertex() = v_new;
     hRight -> vertex() = v_new;
+    // handle triangle case
+    if(isLeftTriangle){
+        // HALFEDGE
+        h_listTop[0] -> next() = h_listDown[h_listDown.size() - 2] -> next();
+        h_listTop[0] -> face() = f_listDown[f_listDown.size() - 1];
+        h_listTop[0] -> twin() = h_listTop[1];
+        
+        h_listDown[h_listDown.size() - 3] -> next() =  h_listTop[0];
+        
+        // VERTICES
+        v_listDown[v_listDown.size() - 1] -> halfedge() = h_listTop[1];
+        
+        // EDGES
+        
+        // FACES
+        f_listDown[f_listDown.size() - 1] -> halfedge() = h_listTop[0];
+    }
+    if(isRightTriangle){
+        // HALFEDGE
+        h_listDown[0] -> next() = h_listTop[h_listTop.size() - 2] -> next();
+        h_listDown[0] -> face() = f_listTop[f_listTop.size() - 1];
+        h_listDown[0] -> twin() = h_listDown[1];
+        
+        h_listTop[h_listTop.size() - 3] -> next() =  h_listDown[0];
+        
+        // VERTICES
+        v_listTop[v_listTop.size() - 1] -> halfedge() = h_listDown[1];
+        
+        // EDGES
+        
+        // FACES
+        f_listTop[f_listTop.size() - 1] -> halfedge() = h_listDown[0];
+    }
     
-
+    
     // erase element
-    // check halfedge
-    std::cout << "v0 halfedge is h0: " << ((v0 -> halfedge()) == h0) << std::endl;
-    std::cout << "v1 halfedge is h1: " << ((v1 -> halfedge()) == h1) << std::endl;
     // VERTICES
     erase(v0);
     erase(v1);
@@ -323,11 +350,27 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::collapse_edge(Halfedge_Me
     erase(h1);
     // EDGE
     erase(e);
+    // handle triangle case
+    if(isLeftTriangle){
+        // HALFEDGE
+        erase(h_listDown[h_listDown.size() - 2]);
+        erase(h_listDown[h_listDown.size() - 1]);
+        // EDGES
+        erase(e_listDown[e_listDown.size() - 1]);
+        // FACES
+        erase(f_listTop[0]);
+    }
+    if(isRightTriangle){
+        // HALFEDGE
+        erase(h_listTop[h_listTop.size() - 2]);
+        erase(h_listTop[h_listTop.size() - 1]);
+        // EDGES
+        erase(e_listTop[e_listTop.size() - 1]);
+        // FACES
+        erase(f_listDown[0]);
+    }
     
     return v_new;
-    
-    //return std::nullopt;
-
 }
 
 /*

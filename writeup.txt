@@ -2,10 +2,10 @@ flip_edge():
 - Fully implemented, support polygons.
 
 erase_vertex():
-- Implemented for standard hex, bug for polygons.
+- Implemented for triangles, bug for polygons.
 
 split_edge():
 - Fully implemented.
 
 collapse_edge():
-- Still working.
+- Fully implemented.
