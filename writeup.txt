@@ -9,3 +9,6 @@ split_edge():
 
 collapse_edge():
 - Fully implemented.
+
+bevel_face():
+- Fully implemented.

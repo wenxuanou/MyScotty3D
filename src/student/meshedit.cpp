@@ -264,8 +264,6 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::collapse_edge(Halfedge_Me
     bool isLeftTriangle = false, isRightTriangle = true;
     isLeftTriangle = (h_listTop[0] -> next() == h_listDown[h_listDown.size() - 1]);
     isRightTriangle = (h_listDown[0] -> next() == h_listTop[h_listTop.size() - 1]);
-    std::cout << "isLeftTriangle: " << isLeftTriangle << std::endl;
-    std::cout << "isRightTriangle: " << isRightTriangle << std::endl;
 
     
     // create new element
@@ -462,10 +460,6 @@ std::optional<Halfedge_Mesh::EdgeRef> Halfedge_Mesh::flip_edge(Halfedge_Mesh::Ed
     f_list.push_back(h -> face());
     f_list.push_back(h -> twin() -> face());
     
-    //std::cout << "h_list.size(): " << h_list.size() << std::endl;
-    //std::cout << "num_halfedgeLeft: " << num_halfedgeLeft << " num_halfedgeRight: " << num_halfedgeRight << std::endl;
-    
-    
     // reassign elements
     // HALFEDGE
     h_list[0] -> next() = h_list[2];
@@ -504,10 +498,7 @@ std::optional<Halfedge_Mesh::EdgeRef> Halfedge_Mesh::flip_edge(Halfedge_Mesh::Ed
     the edge that was split, rather than the new edges.
 */
 std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::split_edge(Halfedge_Mesh::EdgeRef e) {
-    
-    //TODO: implement this, restricted to triangle
-//    (void)e;
-//    return std::nullopt;
+    // restricted to triangles
     
     // check if edge on boundary
     if(e -> on_boundary()){ return std::nullopt; }
@@ -745,11 +736,104 @@ std::optional<Halfedge_Mesh::FaceRef> Halfedge_Mesh::bevel_face(Halfedge_Mesh::F
 
     // Reminder: You should set the positions of new vertices (v->pos) to be exactly
     // the same as wherever they "started from."
-
-    //TODO: implement this
-    (void)f;
-    return std::nullopt;
     
+    // collect neighbour information
+    std::vector<HalfedgeRef> h_list;    // HALFEDGES
+    std::vector<HalfedgeRef> h_newList;
+    std::vector<VertexRef> v_list;      // VERTICES
+    std::vector<VertexRef> v_newList;
+    std::vector<EdgeRef> e_list;        // EDGES
+    std::vector<EdgeRef> e_newList;
+    std::vector<FaceRef> f_newList;        // FACES
+    
+    HalfedgeRef h = f -> halfedge();
+    do{
+        // HALFEDGES
+        h_list.push_back(h);
+        // VERTICES
+        v_list.push_back(h -> vertex());
+        // EDGES
+        e_list.push_back(h -> edge());      // not used
+        
+        h = h -> next();
+    }while(h != f -> halfedge());
+    h = f -> halfedge();                // reset
+    
+    size_t num_edge = h_list.size();    // number of edges of the face to be beveled
+    
+    
+    // create new elements
+    // HALFEDGES
+    for(size_t count = 0; count < 4 * num_edge; count++){
+        h_newList.push_back(new_halfedge());
+    }
+    // EDGES
+    for(size_t count = 0; count < 2 * num_edge; count++){
+        e_newList.push_back(new_edge());
+    }
+    // VERTICES
+    for(size_t count = 0; count < num_edge; count++){
+        v_newList.push_back(new_vertex());
+    }
+    // FACES
+    for(size_t count = 0; count < num_edge; count++){
+        f_newList.push_back(new_face());
+    }
+    f_newList.push_back(new_face());
+    
+    
+    // reassign elements
+    // HALFEDGES
+    for(size_t count = 0; count < num_edge; count++){
+        h_list[count] -> next() = h_newList[count * 4];
+        h_list[count] -> face() = f_newList[count];
+        
+        h_newList[count * 4] -> next() = h_newList[count * 4 + 2];
+        h_newList[count * 4] -> twin() = h_newList[count * 4 + 1];
+        h_newList[count * 4] -> vertex() = v_list[(count + 1) % num_edge];
+        h_newList[count * 4] -> edge() = e_newList[count * 2];
+        h_newList[count * 4] -> face() = f_newList[count];
+        
+        h_newList[count * 4 + 1] -> next() = h_list[(count + 1) % num_edge];
+        h_newList[count * 4 + 1] -> twin() = h_newList[count * 4];
+        h_newList[count * 4 + 1] -> vertex() = v_newList[count];
+        h_newList[count * 4 + 1] -> edge() = e_newList[count * 2];
+        h_newList[count * 4 + 1] -> face() = f_newList[(count + 1) % num_edge];
+        
+        h_newList[count * 4 + 2] -> next() = h_newList[((count + num_edge - 1) * 4 + 1) % (num_edge * 4)];
+        h_newList[count * 4 + 2] -> twin() = h_newList[count * 4 + 3];
+        h_newList[count * 4 + 2] -> vertex() = v_newList[count];
+        h_newList[count * 4 + 2] -> edge() = e_newList[count * 2 + 1];
+        h_newList[count * 4 + 2] -> face() = f_newList[count];
+        
+        h_newList[count * 4 + 3] -> next() = h_newList[((count + 1) * 4 + 3) % (num_edge * 4)];
+        h_newList[count * 4 + 3] -> twin() = h_newList[count * 4 + 2];
+        h_newList[count * 4 + 3] -> vertex() = v_newList[(count + num_edge - 1) % num_edge];
+        h_newList[count * 4 + 3] -> edge() = e_newList[count * 2 + 1];
+        h_newList[count * 4 + 3] -> face() = f_newList[f_newList.size() - 1];
+    }
+    // EDGES
+    for(size_t count = 0; count < num_edge; count++){
+        e_newList[count * 2] -> halfedge() = h_newList[count * 4];
+        e_newList[count * 2 + 1] -> halfedge() = h_newList[count * 4 + 2];
+    }
+    // VERTICES
+    for(size_t count = 0; count < num_edge; count++){
+        v_newList[count] -> halfedge() = h_newList[count * 4 + 2];
+        v_newList[count] -> pos = v_list[(count + 1) % num_edge] -> pos;
+    }
+    // FACES
+    for(size_t count = 0; count < num_edge; count++){
+        f_newList[count] -> halfedge() = h_list[count];
+    }
+    f_newList[f_newList.size() - 1] -> halfedge() = h_newList[3];
+    
+    
+    // erase element
+    erase(f);
+    
+    
+    return f_newList[f_newList.size() - 1];
 }
 
 /*
@@ -839,6 +923,8 @@ void Halfedge_Mesh::bevel_face_positions(const std::vector<Vec3>& start_position
                                          Halfedge_Mesh::FaceRef face, float tangent_offset,
                                          float normal_offset) {
 
+    // TODO: implement this
+    
     if(flip_orientation) normal_offset = -normal_offset;
     std::vector<HalfedgeRef> new_halfedges;
     auto h = face->halfedge();
@@ -847,11 +933,37 @@ void Halfedge_Mesh::bevel_face_positions(const std::vector<Vec3>& start_position
         h = h->next();
     } while(h != face->halfedge());
 
-    (void)new_halfedges;
-    (void)start_positions;
-    (void)face;
-    (void)tangent_offset;
-    (void)normal_offset;
+//    (void)new_halfedges;
+//    (void)start_positions;
+//    (void)face;
+//    (void)tangent_offset;
+//    (void)normal_offset;
+    
+    // TODO: check whether bevel possible
+    Vec3 p0 = start_positions[0];
+    Vec3 p2 = start_positions[2];
+    if(tangent_offset >= (p0 - p2).norm() / 2.0f){
+        return;
+    }
+    
+    size_t num_edge = new_halfedges.size();
+    for(size_t i = 0; i < num_edge; i++)
+    {
+        Vec3 p = start_positions[i];                // vertex position
+        Vec3 p_left = start_positions[(i+num_edge-1) % num_edge]; // left neighbour position
+        Vec3 p_right = start_positions[(i+1) % num_edge];  // right neighbour position
+        
+        Vec3 p_proj = dot(p - p_left, p_right - p_left) * (p_right - p_left).unit(); // projection vector
+        Vec3 p_normal = (p - p_left) - p_proj;
+        
+        Vec3 p_end = p_proj + p_normal + p_normal.unit() * tangent_offset;   // offset on tangent
+        p_end = p_end + (face -> normal()).unit() * normal_offset;             // offset on face normal
+            
+        new_halfedges[i] -> vertex() -> pos = p_end + p_left;
+        
+    }
+    
+    return;
 }
 
 /*
