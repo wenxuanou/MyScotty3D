@@ -922,8 +922,6 @@ void Halfedge_Mesh::bevel_edge_positions(const std::vector<Vec3>& start_position
 void Halfedge_Mesh::bevel_face_positions(const std::vector<Vec3>& start_positions,
                                          Halfedge_Mesh::FaceRef face, float tangent_offset,
                                          float normal_offset) {
-
-    // TODO: implement this
     
     if(flip_orientation) normal_offset = -normal_offset;
     std::vector<HalfedgeRef> new_halfedges;
@@ -932,14 +930,7 @@ void Halfedge_Mesh::bevel_face_positions(const std::vector<Vec3>& start_position
         new_halfedges.push_back(h);
         h = h->next();
     } while(h != face->halfedge());
-
-//    (void)new_halfedges;
-//    (void)start_positions;
-//    (void)face;
-//    (void)tangent_offset;
-//    (void)normal_offset;
     
-    // TODO: check whether bevel possible
     Vec3 p0 = start_positions[0];
     Vec3 p2 = start_positions[2];
     if(tangent_offset >= (p0 - p2).norm() / 2.0f){
@@ -970,8 +961,104 @@ void Halfedge_Mesh::bevel_face_positions(const std::vector<Vec3>& start_position
     Splits all non-triangular faces into triangles.
 */
 void Halfedge_Mesh::triangulate() {
-
+        
     // For each face...
+//    FaceRef f = faces_begin();
+//    Size num_face = n_faces();
+//    Size iter = 0;
+    std::cout << "n_faces: " << n_faces() << std::endl;
+    //while(iter < num_face){
+    for(FaceRef f = faces_begin(); f != faces_end(); f++){
+        if(f -> degree() == 3){ continue; }          // skip triangle faces
+        
+        // collect neighbours info
+        std::vector<HalfedgeRef> h_list, h_newList;    // HALFEDGES
+        std::vector<VertexRef> v_list;      // VERTICES
+        std::vector<EdgeRef> e_list, e_newList;        // EDGES
+        std::vector<FaceRef> f_newList;        // FACES
+        
+        HalfedgeRef h = f -> halfedge();
+        do{
+            // HALFEDGES
+            h_list.push_back(h);
+            // VERTICES
+            v_list.push_back(h -> vertex());
+            // EDGES
+            e_list.push_back(h -> edge());     // not used
+            
+            h = h -> next();
+        }while(h != f -> halfedge());
+        size_t num_edge = e_list.size();
+        
+        // create new elements
+        // HALFEDGES
+        for(size_t count = 0; count < 2 * (num_edge - 3); count++){
+            h_newList.push_back(new_halfedge());
+        }
+    
+        // EDGES
+        for(size_t count = 0; count < num_edge - 3; count++){
+            e_newList.push_back(new_edge());
+        }
+        // FACES
+        f_newList.push_back(f);
+        for(size_t count = 0; count < num_edge - 3; count++){
+            f_newList.push_back(new_face());
+        }
+    
+        
+        // reassign elements
+        // HALFEDGES
+        for(size_t count = 0; count < num_edge - 3; count++){
+            h_newList[2 * count] -> next() = h_list[count + 2];
+            h_newList[2 * count] -> twin() = h_newList[2 * count + 1];
+            h_newList[2 * count] -> vertex() = v_list[0];
+            h_newList[2 * count] -> edge() = e_newList[count];
+            h_newList[2 * count] -> face() = f_newList[count + 1];
+            
+            if(count == 0){
+                h_newList[2 * count + 1] -> next() = h_list[0];
+            }else{
+                h_newList[2 * count + 1] -> next() = h_newList[2 * count - 1];
+            }
+            h_newList[2 * count + 1] -> twin() = h_newList[2 * count];
+            h_newList[2 * count + 1] -> vertex() = v_list[count + 2];
+            h_newList[2 * count + 1] -> edge() = e_newList[count];
+            h_newList[2 * count + 1] -> face() = f_newList[count];
+        }
+    
+        h_list[num_edge - 1] -> next() = h_newList[2 * (num_edge - 3 - 1)];
+        h_list[num_edge - 1] -> face() = f_newList[num_edge - 2 - 1];
+    
+        h_list[num_edge - 2] -> face() = f_newList[num_edge - 2 - 1];
+    
+        for(size_t count = 0; count < num_edge - 3; count++){
+            h_list[count + 1] -> next() = h_newList[2 * count + 1];
+            h_list[count + 1] -> face() = f_newList[count];
+        }
+    
+        // VERTEX
+        for(size_t count = 0; count < num_edge; count++){
+            v_list[count] -> halfedge() = h_list[count];
+        }
+    
+        // EDGES
+        for(size_t count = 0; count < num_edge - 3; count++){
+            e_newList[count] -> halfedge() = h_newList[2 * count];
+        }
+        // FACES
+        for(size_t count = 0; count < num_edge - 2; count++){
+            f_newList[count] -> halfedge() = h_list[count + 1];
+        }
+        
+        
+        //f++;    // move to next face
+    }
+    
+    // validate operation for current face
+    validate();
+    
+    return;
 }
 
 /* Note on the quad subdivision process:
@@ -1041,6 +1128,9 @@ void Halfedge_Mesh::linear_subdivide_positions() {
     // For each face, assign the centroid (i.e., arithmetic mean)
     // of the original vertex positions to Face::new_pos. Note
     // that in general, NOT all faces will be triangles!
+    
+    // TODO: implement this
+    
 }
 
 /*
@@ -1061,6 +1151,9 @@ void Halfedge_Mesh::catmullclark_subdivide_positions() {
     // slightly more involved, using the Catmull-Clark subdivision
     // rules. (These rules are outlined in the Developer Manual.)
 
+    // TODO: implement this
+    
+    
     // Faces
 
     // Edges
