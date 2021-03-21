@@ -12,3 +12,6 @@ collapse_edge():
 
 bevel_face():
 - Fully implemented.
+
+triangulate():
+- Implemented for squares, bug for polygons.

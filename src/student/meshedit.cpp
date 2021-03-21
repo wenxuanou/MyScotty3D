@@ -944,7 +944,7 @@ void Halfedge_Mesh::bevel_face_positions(const std::vector<Vec3>& start_position
         Vec3 p_left = start_positions[(i+num_edge-1) % num_edge]; // left neighbour position
         Vec3 p_right = start_positions[(i+1) % num_edge];  // right neighbour position
         
-        Vec3 p_proj = dot(p - p_left, p_right - p_left) * (p_right - p_left).unit(); // projection vector
+        Vec3 p_proj = dot(p - p_left, (p_right - p_left).unit()) * (p_right - p_left).unit(); // projection vector
         Vec3 p_normal = (p - p_left) - p_proj;
         
         Vec3 p_end = p_proj + p_normal + p_normal.unit() * tangent_offset;   // offset on tangent
