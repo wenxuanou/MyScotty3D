@@ -963,13 +963,21 @@ void Halfedge_Mesh::bevel_face_positions(const std::vector<Vec3>& start_position
 void Halfedge_Mesh::triangulate() {
         
     // For each face...
-//    FaceRef f = faces_begin();
-//    Size num_face = n_faces();
-//    Size iter = 0;
     std::cout << "n_faces: " << n_faces() << std::endl;
-    //while(iter < num_face){
+    
+    std::vector<FaceRef> f_oldList;
+    Size countFace = 0;
+    // record non-triangle faces
     for(FaceRef f = faces_begin(); f != faces_end(); f++){
         if(f -> degree() == 3){ continue; }          // skip triangle faces
+
+        f_oldList.push_back(f);
+        countFace++;
+}
+    
+    for(Size countId = 0; countId < countFace; countId++){
+        
+        FaceRef f = f_oldList[countId];
         
         // collect neighbours info
         std::vector<HalfedgeRef> h_list, h_newList;    // HALFEDGES
@@ -1001,8 +1009,8 @@ void Halfedge_Mesh::triangulate() {
             e_newList.push_back(new_edge());
         }
         // FACES
-        f_newList.push_back(f);
-        for(size_t count = 0; count < num_edge - 3; count++){
+        //f_newList.push_back(f);
+        for(size_t count = 0; count < num_edge - 2; count++){
             f_newList.push_back(new_face());
         }
     
@@ -1019,7 +1027,7 @@ void Halfedge_Mesh::triangulate() {
             if(count == 0){
                 h_newList[2 * count + 1] -> next() = h_list[0];
             }else{
-                h_newList[2 * count + 1] -> next() = h_newList[2 * count - 1];
+                h_newList[2 * count + 1] -> next() = h_newList[2 * (count - 1)];
             }
             h_newList[2 * count + 1] -> twin() = h_newList[2 * count];
             h_newList[2 * count + 1] -> vertex() = v_list[count + 2];
@@ -1027,11 +1035,13 @@ void Halfedge_Mesh::triangulate() {
             h_newList[2 * count + 1] -> face() = f_newList[count];
         }
     
+        h_list[0] -> face() = f_newList[0];
+        
         h_list[num_edge - 1] -> next() = h_newList[2 * (num_edge - 3 - 1)];
-        h_list[num_edge - 1] -> face() = f_newList[num_edge - 2 - 1];
-    
-        h_list[num_edge - 2] -> face() = f_newList[num_edge - 2 - 1];
-    
+        h_list[num_edge - 1] -> face() = f_newList[f_newList.size() - 1];
+        
+        h_list[num_edge - 2] -> face() = f_newList[f_newList.size() - 1];
+        
         for(size_t count = 0; count < num_edge - 3; count++){
             h_list[count + 1] -> next() = h_newList[2 * count + 1];
             h_list[count + 1] -> face() = f_newList[count];
@@ -1051,12 +1061,15 @@ void Halfedge_Mesh::triangulate() {
             f_newList[count] -> halfedge() = h_list[count + 1];
         }
         
+        //std::cout<< "h_list[1] -> face() is f_newList[0]: " << ((h_list[1] -> face()) == f_newList[0]) << std::endl;
+        std::cout<< "h_newList[3] -> next() is h_newList[0]: " << ((h_newList[3] -> next()) == h_newList[0]) << std::endl;
         
-        //f++;    // move to next face
+        // erase element
+        erase(f);
+        
+        // validate operation for current face
+        validate();
     }
-    
-    // validate operation for current face
-    validate();
     
     return;
 }
