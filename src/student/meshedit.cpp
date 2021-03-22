@@ -962,17 +962,18 @@ void Halfedge_Mesh::bevel_face_positions(const std::vector<Vec3>& start_position
 */
 void Halfedge_Mesh::triangulate() {
         
-    // For each face...
-    std::cout << "n_faces: " << n_faces() << std::endl;
-    
+    // For each face...    
     std::vector<FaceRef> f_oldList;
     Size countFace = 0;
     // record non-triangle faces
     for(FaceRef f = faces_begin(); f != faces_end(); f++){
-        if(f -> degree() == 3){ continue; }          // skip triangle faces
-
-        f_oldList.push_back(f);
-        countFace++;
+        if(f -> degree() == 3){
+            continue; // skip triangle faces
+            
+        }else{
+            f_oldList.push_back(f);
+            countFace++;
+        }
 }
     
     for(Size countId = 0; countId < countFace; countId++){
@@ -1062,7 +1063,7 @@ void Halfedge_Mesh::triangulate() {
         }
         
         //std::cout<< "h_list[1] -> face() is f_newList[0]: " << ((h_list[1] -> face()) == f_newList[0]) << std::endl;
-        std::cout<< "h_newList[3] -> next() is h_newList[0]: " << ((h_newList[3] -> next()) == h_newList[0]) << std::endl;
+        //std::cout<< "h_newList[3] -> next() is h_newList[0]: " << ((h_newList[3] -> next()) == h_newList[0]) << std::endl;
         
         // erase element
         erase(f);
