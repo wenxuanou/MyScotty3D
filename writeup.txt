@@ -15,3 +15,6 @@ bevel_face():
 
 triangulate():
 - Fully implemented.
+
+linear_subdivide_positions():
+- Fully implemented.

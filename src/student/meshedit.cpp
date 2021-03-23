@@ -1145,6 +1145,36 @@ void Halfedge_Mesh::linear_subdivide_positions() {
     
     // TODO: implement this
     
+    // VERTICES
+    for(VertexRef v = vertices_begin(); v != vertices_end(); v++){
+        v -> new_pos = v -> pos;
+    }
+    
+    // EDGES
+    for(EdgeRef e = edges_begin(); e != edges_end(); e++){
+        HalfedgeRef h1 = e -> halfedge();
+        HalfedgeRef h2 = h1 -> twin();
+        VertexRef v1 = h1 -> vertex(), v2 = h2 -> vertex();
+        
+        e -> new_pos = ((v1 -> pos) + (v2 -> pos)) / 2;
+    }
+    
+    // FACES
+    for(FaceRef f = faces_begin(); f != faces_end(); f++){
+        HalfedgeRef h = f -> halfedge();
+        Vec3 avgPos(0.0f,0.0f,0.0f);
+        int edgeCount = 0;
+        do{
+            avgPos += h -> vertex() -> pos;
+            edgeCount++;
+            h = h -> next();
+        }while(h != f -> halfedge());
+        
+        avgPos /= edgeCount;
+        
+        f -> new_pos = avgPos;
+    }
+    
 }
 
 /*
