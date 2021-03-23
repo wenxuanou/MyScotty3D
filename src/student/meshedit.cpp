@@ -1194,15 +1194,57 @@ void Halfedge_Mesh::catmullclark_subdivide_positions() {
     // except that the calculation of the positions themsevles is
     // slightly more involved, using the Catmull-Clark subdivision
     // rules. (These rules are outlined in the Developer Manual.)
-
-    // TODO: implement this
-    
     
     // Faces
-
+    //Vec3 avgFacePos(0,0,0);
+    //Size numFace = n_faces();
+    for(FaceRef f = faces_begin(); f != faces_end(); f++){
+        HalfedgeRef h = f -> halfedge();
+        Vec3 avgPos(0.0f,0.0f,0.0f);
+        do{
+            avgPos += h -> vertex() -> pos;
+            h = h -> next();
+        }while(h != f -> halfedge());
+        
+        avgPos /= f -> degree();
+        
+        f -> new_pos = avgPos;
+        //avgFacePos += avgPos;
+    }
+    //avgFacePos /= numFace;
+    
     // Edges
-
+    for(EdgeRef e = edges_begin(); e != edges_end(); e++){
+        HalfedgeRef h1 = e -> halfedge();
+        HalfedgeRef h2 = h1 -> twin();
+        FaceRef f1 = h1 -> face(), f2 = h2 -> face();
+        
+        e -> new_pos = ((f1 -> new_pos) + (f2 -> new_pos) + (e -> center())) / 3;
+        
+    }
+    
     // Vertices
+    for(VertexRef v = vertices_begin(); v != vertices_end(); v++){
+        int n = v -> degree();
+        Vec3 S = v -> pos;
+        Vec3 Q(0,0,0), R(0,0,0);
+        HalfedgeRef h = v -> halfedge();
+        
+        do{
+            Q += h -> face() -> new_pos;
+            R += h -> edge() -> center();
+            
+            h = h -> twin() -> next();
+        }while(h != v -> halfedge());
+        
+        Q /= n;
+        R /= n;
+        
+        v -> new_pos = (Q + 2*R + (n - 3)*S) / n;
+        
+    }
+    
+    
 }
 
 /*
