@@ -1252,7 +1252,6 @@ void Halfedge_Mesh::catmullclark_subdivide_positions() {
         using Loop subdivision. Note: this is will only be called on triangle meshes.
 */
 void Halfedge_Mesh::loop_subdivide() {
-
     // Compute new positions for all the vertices in the input mesh, using
     // the Loop subdivision rule, and store them in Vertex::new_pos.
     // -> At this point, we also want to mark each vertex as being a vertex of the
@@ -1262,13 +1261,13 @@ void Halfedge_Mesh::loop_subdivide() {
     // -> Next, we're going to split every edge in the mesh, in any order.  For
     //    future reference, we're also going to store some information about which
     //    subdivided edges come from splitting an edge in the original mesh, and
-    //    which edges are new, by setting the flat Edge::is_new. Note that in this
+    //    which edges are new, by setting the flag Edge::is_new. Note that in this
     //    loop, we only want to iterate over edges of the original mesh.
     //    Otherwise, we'll end up splitting edges that we just split (and the
     //    loop will never end!)
     // -> Now flip any new edge that connects an old and new vertex.
     // -> Finally, copy the new vertex positions into final Vertex::pos.
-
+    
     // Each vertex and edge of the original surface can be associated with a
     // vertex in the new (subdivided) surface.
     // Therefore, our strategy for computing the subdivided vertex locations is to
@@ -1295,6 +1294,103 @@ void Halfedge_Mesh::loop_subdivide() {
     // Finally, flip any new edge that connects an old and new vertex.
 
     // Copy the updated vertex positions to the subdivided mesh.
+    
+        
+    // Assume all faces in mesh are triangles
+    
+    // computer new position of existed vertices
+    Size numVertex = n_vertices();
+    VertexRef v = vertices_begin();
+    for(Size count = 0; count < numVertex; count++, v++){
+        int n = v -> degree();
+        float u;
+        if(n == 3){
+            u = 3.0f / 16.0f;
+        }else{
+            u = 3.0f / (8.0f * (float)n);
+        }
+        
+        Vec3 sumPos(0,0,0);
+        HalfedgeRef h_temp = v -> halfedge();
+        do{
+            sumPos += h_temp -> twin() -> vertex() -> pos;
+            h_temp = h_temp -> twin() -> next();
+        }while(h_temp != v -> halfedge());
+        
+        v -> new_pos = (1.0f - n * u) * (v -> pos) + u * sumPos;
+        v -> is_new = false;    // still belongs to original mesh
+                
+    }
+    
+    // compute new edge position using new vertices position
+    Size numEdge = n_edges();
+    EdgeRef e = edges_begin();
+    for(Size count = 0; count < numEdge; count++, e++){
+        VertexRef v1 = e -> halfedge() -> vertex();
+        VertexRef v2 = e -> halfedge() -> twin() -> vertex();
+        Vec3 newPos = ((v1 -> new_pos) + (v2 -> new_pos)) / 2.0f;
+        
+        e -> new_pos = newPos;
+        e -> is_new = false;
+    }
+    
+    // splitting edges
+    e = edges_begin();   // reset
+    for(Size count = 0; count < numEdge; count++){
+        // record next edge
+        EdgeRef nextEdge = e;
+        nextEdge++;
+        
+        // split the edge
+        VertexRef v1 = e -> halfedge() -> vertex();             // record endpoints
+        VertexRef v2 = e -> halfedge() -> twin() -> vertex();
+        
+        auto ref = split_edge(e);   // split edge
+        VertexRef v_new = ref.value();
+                
+        // flag new vertex
+        v_new -> is_new = true;
+        v_new -> new_pos = e -> new_pos;
+        
+        // flag new edge
+        HalfedgeRef h_temp = v_new -> halfedge();
+        do{
+            if((h_temp -> twin() -> vertex() == v1) || (h_temp -> twin() -> vertex() == v2)){
+                h_temp -> edge() -> is_new = false;
+            }else{
+                h_temp -> edge() -> is_new = true;
+            }
+            
+            h_temp = h_temp -> twin() -> next();
+        }while(h_temp != v_new -> halfedge());
+        
+        e = nextEdge;    // move to next edge
+    }
+    
+    // flip edges, no new edges added
+    for(e = edges_begin(); e != edges_end(); e++){
+        if(!(e -> is_new)){ continue; }     // skip old edges
+
+        VertexRef v1 = e -> halfedge() -> vertex();
+        VertexRef v2 = e -> halfedge() -> twin() -> vertex();
+
+        while((v1 -> is_new) != (v2 -> is_new)){
+            auto ref = flip_edge(e);
+            EdgeRef e_temp = ref.value();
+
+            v1 = e_temp -> halfedge() -> vertex();
+            v2 = e_temp -> halfedge() -> twin() -> vertex();
+        }
+
+    }
+    
+    // update vertex position
+    for(v = vertices_begin(); v != vertices_end(); v++){
+        v -> pos = v -> new_pos;
+    }
+    
+    // validate operation
+    validate();
 }
 
 /*

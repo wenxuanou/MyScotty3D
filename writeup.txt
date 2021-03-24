@@ -21,3 +21,6 @@ linear_subdivide_positions():
 
 catmullclark_subdivide_positions():
 - Fully implemented.
+
+loop_subdivide():
+- Fully implemented.
