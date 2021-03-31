@@ -1,0 +1,26 @@
+flip_edge():
+- Fully implemented, support polygons.
+
+erase_vertex():
+- Implemented for triangles, bug for polygons.
+
+split_edge():
+- Fully implemented.
+
+collapse_edge():
+- Fully implemented.
+
+bevel_face():
+- Fully implemented.
+
+triangulate():
+- Fully implemented.
+
+linear_subdivide_positions():
+- Fully implemented.
+
+catmullclark_subdivide_positions():
+- Fully implemented.
+
+loop_subdivide():
+- Fully implemented.
