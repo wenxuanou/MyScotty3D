@@ -8,8 +8,8 @@ namespace PT {
 
 Spectrum Pathtracer::trace_pixel(size_t x, size_t y) {
 
-    Vec2 xy((float)x, (float)y);
-    Vec2 wh((float)out_w, (float)out_h);
+    Vec2 xy((float)x, (float)y);            // coordinate
+    Vec2 wh((float)out_w, (float)out_h);    // width and height
 
     // TODO (PathTracer): Task 1
 
@@ -21,7 +21,17 @@ Spectrum Pathtracer::trace_pixel(size_t x, size_t y) {
 
     // This currently generates a ray at the bottom left of the pixel every time.
 
-    Ray out = camera.generate_ray(xy / wh);
+//    Ray out = camera.generate_ray(xy / wh);
+    
+    Samplers::Rect::Uniform sampler(Vec2(1.0f));
+    float pdf;
+
+    Vec2 xy_sampled = xy + sampler.sample(pdf);
+    Ray out = camera.generate_ray(xy_sampled / wh);
+        
+    // visualize ray
+    if(RNG::coin_flip(0.00005f)) log_ray(out, 10.0f);
+    
     return trace_ray(out);
 }
 
