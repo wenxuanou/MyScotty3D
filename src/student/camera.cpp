@@ -22,7 +22,7 @@ Ray Camera::generate_ray(Vec2 screen_coord) const {
         
     // world coordinate, homogeneous
     // 1 unit negative away from camera
-    Vec3 world_coord(screen_coord.x, screen_coord.y, -10.0f);
+    Vec3 world_coord(screen_coord.x, screen_coord.y, -1.0f);
     world_coord = iview * world_coord;
         
     Vec3 dir = world_coord - position;
