@@ -1,4 +1,4 @@
-
+#include <algorithm>
 #include "../rays/tri_mesh.h"
 #include "debug.h"
 
@@ -12,7 +12,23 @@ BBox Triangle::bbox() const {
     // Beware of flat/zero-volume boxes! You may need to
     // account for that here, or later on in BBox::intersect
 
-    BBox box;
+    Tri_Mesh_Vert v_0 = vertex_list[v0];
+    Tri_Mesh_Vert v_1 = vertex_list[v1];
+    Tri_Mesh_Vert v_2 = vertex_list[v2];
+    
+    // get vertex position
+    Vec3 p0 = v_0.position;
+    Vec3 p1 = v_1.position;
+    Vec3 p2 = v_2.position;
+    
+    float xMin = fmin(p0.x, fmin(p1.x, p2.x));
+    float xMax = fmax(p0.x, fmax(p1.x, p2.x));
+    float yMin = fmin(p0.y, fmin(p1.y, p2.y));
+    float yMax = fmax(p0.y, fmax(p1.y, p2.y));
+    float zMin = fmin(p0.z, fmin(p1.z, p2.z));
+    float zMax = fmax(p0.z, fmax(p1.z, p2.z));
+    
+    BBox box(Vec3(xMin, yMin, zMin), Vec3(xMax, yMax, zMax));
     return box;
 }
 
@@ -61,7 +77,6 @@ Trace Triangle::hit(const Ray& ray) const {
     
     // proceed when intersect is possible
     scalar = 1.0f / scalar;
-    //printf("scalar: %f \n", scalar);
 
     // solve ray matrix
     float u = scalar * -1 * dot(cross(s, e2), d);
@@ -73,9 +88,7 @@ Trace Triangle::hit(const Ray& ray) const {
     // check if really hit
     if((u < 0.0) || (v < 0.0)){ return ret; }
     if(u + v > 1.0){ return ret;}
-    
-    //printf("u: %f, v: %f, t: %f \n", u, v, t);
-    
+        
     // get intersect point info
     ret.hit = true;
     ret.distance = t; // d is unit direction vector with length 1
