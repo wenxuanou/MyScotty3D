@@ -22,13 +22,14 @@ Trace Triangle::hit(const Ray& ray) const {
     Tri_Mesh_Vert v_0 = vertex_list[v0];
     Tri_Mesh_Vert v_1 = vertex_list[v1];
     Tri_Mesh_Vert v_2 = vertex_list[v2];
-    (void)v_0;
-    (void)v_1;
-    (void)v_2;
+//    (void)v_0;
+//    (void)v_1;
+//    (void)v_2;
 
     // TODO (PathTracer): Task 2
     // Intersect this ray with a triangle defined by the three above points.
 
+    // initialize
     Trace ret;
     ret.origin = ray.point;
     ret.hit = false;       // was there an intersection?
@@ -36,6 +37,51 @@ Trace Triangle::hit(const Ray& ray) const {
     ret.position = Vec3{}; // where was the intersection?
     ret.normal = Vec3{};   // what was the surface normal at the intersection?
                            // (this should be interpolated between the three vertex normals)
+    
+    // get vertex position
+    Vec3 p0 = v_0.position;
+    Vec3 p1 = v_1.position;
+    Vec3 p2 = v_2.position;
+    // get normal vector
+    Vec3 n0 = v_0.normal;
+    Vec3 n1 = v_1.normal;
+    Vec3 n2 = v_2.normal;
+    // get edge vector
+    Vec3 e1 = p1 - p0;
+    Vec3 e2 = p2 - p0;
+    // get vector to ray origin and ray direction
+    Vec3 s = ray.point - p0;
+    Vec3 d = ray.dir;
+        
+    float scalar = dot(cross(e1,d),e2);
+    // scalar is zero when d in same direction as e1
+    // or cross(e1,d) perpendicular to e2,
+    // basically when d is on plane span by e1 an e2
+    if(scalar <= 0.0f){ return ret; }
+    
+    // proceed when intersect is possible
+    scalar = 1.0f / scalar;
+    //printf("scalar: %f \n", scalar);
+
+    // solve ray matrix
+    float u = scalar * -1 * dot(cross(s, e2), d);
+    float v = scalar * dot(cross(e1, d), s);
+    float t = scalar * -1 * dot(cross(s, e2), e1);
+        
+    // check if out of dist_bounds
+    if(t < ray.dist_bounds.x || t > ray.dist_bounds.y){ return ret; }
+    // check if really hit
+    if((u < 0.0) || (v < 0.0)){ return ret; }
+    if(u + v > 1.0){ return ret;}
+    
+    //printf("u: %f, v: %f, t: %f \n", u, v, t);
+    
+    // get intersect point info
+    ret.hit = true;
+    ret.distance = t; // d is unit direction vector with length 1
+    ret.position = p0 + u * e1 + v * e2;
+    ret.normal = (1 - u - v) * n0 + u * n1 + v * n2;
+    
     return ret;
 }
 

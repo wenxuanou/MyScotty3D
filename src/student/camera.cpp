@@ -33,9 +33,9 @@ Ray Camera::generate_ray(Vec2 screen_coord) const {
     
     world_coord = iview * world_coord;
     aperture_world = iview * aperture_world;
-    
+
     Vec3 dir = world_coord - aperture_world;
-    
+
     // output ray from camera, point to screen point
     return Ray(aperture_world, dir);
 }
