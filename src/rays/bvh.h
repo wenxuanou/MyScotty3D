@@ -37,6 +37,15 @@ private:
         bool is_leaf() const;
         friend class BVH<Primitive>;
     };
+    
+    // recursive build function
+    void buildRecur(std::vector<Primitive>&& prims, size_t max_leaf_size, size_t nodeId);
+    
+    // start: start index of primitives in primitives array
+    // size: range of index in primitives list, # of primitives in subtrees
+    // l: index of left child node
+    // r: index of right child node
+    // returns id of the created node
     size_t new_node(BBox box = {}, size_t start = 0, size_t size = 0, size_t l = 0, size_t r = 0);
 
     std::vector<Node> nodes;

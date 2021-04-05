@@ -43,7 +43,140 @@ void BVH<Primitive>::build(std::vector<Primitive>&& prims, size_t max_leaf_size)
 
     new_node(box, 0, primitives.size(), 0, 0);
     root_idx = 0;
+    
+    buildRecur(max_leaf_size, root_idx);
 }
+
+// recursive building function
+template<typename Primitive>
+void BVH<Primitive>::buildRecur(size_t max_leaf_size, size_t nodeId){
+    
+    // no need to split if smaller than max size
+    if(nodes[nodeId].size <= max_leaf_size){ return; }
+    
+    
+    // split if node size too big, assume all nodes are leaves
+    
+    // current node
+    Node n = node[nodeId];
+    // bbox range of this node
+    float XBmin = n.bbox.min.x,
+          XBmax = n.bbox.max.x,
+          YBmin = n.bbox.min.y,
+          YBmax = n.bbox.max.y,
+          ZBmin = n.bbox.min.z,
+          ZBmax = n.bbox.max.z;
+    // initialize bucket, size to number of bucket, initialize to 0
+    // row 0: number of primitives; row 1: area
+    int bNum = 16;
+    float BX[2][bNum] = {0.0f}, BY[2][bNum] = {0.0f}, BZ[2][bNum] = {0.0f};
+    // partition step
+    float XStep = (XBmax - XBmin) / (bNum * 1.0f);
+    float YStep = (YBmax - YBmin) / (bNum * 1.0f);
+    float ZStep = (ZBmax - ZBmin) / (bNum * 1.0f);
+    
+    // start and end iterator in vector
+    auto start = primitives.begin() + n.start;
+    auto end = start + n.size;
+    
+    // find primitives location in each axis bucket
+    for(auto it = start; it != end; it++){
+        
+        int buckIdX = floor(it -> bbox().center().x / XStep);
+        int buckIdY = floor(it -> bbox().center().y / YStep);
+        int buckIdZ = floor(it -> bbox().center().z / ZStep);
+        
+        BX[0][buckIdX] += 1.0;                            // number of primitives
+        BY[0][buckIdY] += 1.0;
+        BZ[0][buckIdZ] += 1.0;
+        
+        BX[1][buckIdX] += it -> bbox().surface_area();   // surface area
+        BY[1][buckIdY] += it -> bbox().surface_area();
+        BZ[1][buckIdZ] += it -> bbox().surface_area();
+    }
+    
+    
+    // find lowest cost partition
+    for(int count = 1; count < bNum; count++){
+        
+        BX[0][count] += BX[0][count - 1];               // number of primitives
+        BY[0][count] += BY[0][count - 1];
+        BZ[0][count] += BZ[0][count - 1];
+        
+        BX[1][count] += BX[1][count - 1];               // surface area
+        BY[1][count] += BY[1][count - 1];
+        BZ[1][count] += BZ[1][count - 1];
+    }
+    // total surface area
+    float sN = n.bbox.surface_area();;
+    // total number of primitives
+    size_t N = n.size();
+    
+    // initialize
+    float XminCost = (BX[1][0] / sN * BX[0][0]) + ((sN - BX[1][0])/ sN * (N - BX[0][0]));
+    float YminCost = (BY[1][0] / sN * BY[0][0]) + ((sN - BY[1][0])/ sN * (N - BY[0][0]));
+    float ZminCost = (BZ[1][0] / sN * BZ[0][0]) + ((sN - BZ[1][0])/ sN * (N - BZ[0][0]));
+    int XminId(0), YminId(0), ZminId(0);
+
+    // find the minimal cost and id
+    for(int count = 1; count < bNum ; count++){
+        float XCost = (BX[1][count] - BX[1][count - 1]) / sN * (BX[0][count] - BX[0][count - 1])
+                    + (sN - (BX[1][count] - BX[1][count - 1])) / sN * (sN - (BX[0][count] - BX[0][count - 1]));
+        
+        float YCost = (BY[1][count] - BY[1][count - 1]) / sN * (BY[0][count] - BY[0][count - 1])
+                    + (sN - (BY[1][count] - BY[1][count - 1])) / sN * (sN - (BY[0][count] - BY[0][count - 1]));
+        
+        float ZCost = (BZ[1][count] - BZ[1][count - 1]) / sN * (BZ[0][count] - BZ[0][count - 1])
+                    + (sN - (BZ[1][count] - BZ[1][count - 1])) / sN * (sN - (BZ[0][count] - BZ[0][count - 1]));
+        
+        if(XCost < XminCost){
+            XminCost = XCost;
+            XminId = count;
+        }
+        
+        if(YCost < YminCost){
+            YminCost = YCost;
+            YminId = count;
+        }
+        
+        if(ZCost < ZminCost){
+            ZminCost = ZCost;
+            ZminId = count;
+        }
+    }
+    
+    
+    // create left and right node based on cost
+    float XBound = XBmin + XStep * XminId;
+    float YBound = YBmin + YStep * YminId;
+    float ZBound = ZBmin + ZStep * ZminId;
+    
+    Bbox bboxLeft, bboxRight;
+    
+    // partition base on bound
+    auto boundIt = std::partition(start, end,
+                                  [](Primitive prim){ return (prim.bbox().center().x < XBound)
+                                                            && (prim.bbox().center().y < YBound)
+                                                            && (prim.bbox().center().z < ZBound);
+                                                    }
+                                 );
+    size_t boundId = size_t(std::distance(primitives.begin(), boundIt));    // get index of bound
+    
+    for(auto it = start; it != boundIt; it++){
+        bboxLeft.enclose(it -> bbox());
+    }
+    for(auto it = boundIt; it != end; it++){
+        b boxRight.enclose(it -> bbox());
+    }
+    n.l = new_node(bboxLeft, 0, boundId, 0, 0);
+    n.r = new_node(bboxRight, boundId, N, 0, 0);
+    
+    // recursive call
+    buildRecur(max_leaf_size, n.l);
+    buildRecur(max_leaf_size, n.r);
+    
+}
+
 
 template<typename Primitive> Trace BVH<Primitive>::hit(const Ray& ray) const {
 
