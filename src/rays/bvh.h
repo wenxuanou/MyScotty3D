@@ -39,7 +39,7 @@ private:
     };
     
     // recursive build function
-    void buildRecur(std::vector<Primitive>&& prims, size_t max_leaf_size, size_t nodeId);
+    //void buildRecur(size_t max_leaf_size, size_t nodeId);
     
     // start: start index of primitives in primitives array
     // size: range of index in primitives list, # of primitives in subtrees
