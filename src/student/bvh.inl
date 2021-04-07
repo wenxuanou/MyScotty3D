@@ -346,13 +346,126 @@ template<typename Primitive> Trace BVH<Primitive>::hit(const Ray& ray) const {
     // The starter code simply iterates through all the primitives.
     // Again, remember you can use hit() on any Primitive value.
 
+//    Trace ret;
+//    for(const Primitive& prim : primitives) {
+//        Trace hit = prim.hit(ray);
+//        ret = Trace::min(ret, hit);
+//    }
+    
+//    // initialize
+//    Trace ret, hit;
+//    size_t nodeId = root_idx;
+//    Vec2 minHitTime; // hitTime.x: in time; hitTime.y: out time
+//    bool isHit;
+//
+//    // check root node
+//    BBox nodeBox = nodes[nodeId].bbox;
+//    isHit = nodeBox.hit(ray, minHitTime);   // initialize hit time
+//    // skip if not hit root
+//    if(!isHit){ return ret }
+//
+//    do{
+//        // get left and right node info
+//        size_t nodeId_Left = nodes[nodeId].l;
+//        size_t nodeId_right = nodes[nodeId].r;
+//        BBox nodeBoxLeft = nodes[nodeId_Left].bbox;
+//        BBox nodeBoxRight = nodes[nodeId_right].bbox;
+//
+//        Vec2 hitTimeLeft, hitTimeRight;
+//        bool hitleft = nodeBoxLeft.hit(ray, hitTimeLeft);
+//        bool hitRight = nodeBoxRight.hit(ray, hitTimeRight);
+//
+//        if(!hitleft){
+//            // if not hit left node
+//            nodeId = nodeId_right;          // continue on right node
+//            minHitTime = hitTimeRight;      // update new hit time
+//        }else if(!hitRight){
+//            // if not hit right node
+//            nodeId = nodeId_Left;           // coninue on left node
+//            minHitTime = hitTimeLeft;       // update new hit time
+//        }else if(hitleft && hitRight){
+//            // if hit both node, check min hit time
+//            if(hitTimeLeft.x <= hitTimeRight.x){
+//                nodeId = nodeId_Left;           // coninue on left node
+//                minHitTime = hitTimeLeft;       // update new hit time
+//            }else{
+//                nodeId = nodeId_right;          // continue on right node
+//                minHitTime = hitTimeRight;      // update new hit time
+//            }
+//
+//            //TODO: cannot handle case when first not hit second hit
+//
+//        }
+//
+//    }while(!nodes[nodeId].is_leaf());       // loop until reach leaf node
+    
     Trace ret;
-    for(const Primitive& prim : primitives) {
-        Trace hit = prim.hit(ray);
-        ret = Trace::min(ret, hit);
-    }
+    size_t nodeId = root_idx;
+    
+    // recursively find cloest hit
+    ret = find_closest_hit(ray, nodeId, ret);
+    
     return ret;
 }
+
+
+// recursive find cloest hit
+template<typename Primitive>
+Trace BVH<Primitive>::find_closest_hit(const Ray& ray, size_t nodeId, Trace closestHit) const{
+    
+    Trace tempHit;
+    
+    // check if leaf node
+    if(nodes[nodeId].is_leaf()){
+        // if leaf, check if hit primitive
+        size_t primId = nodes[nodeId].start;
+        tempHit = primitives[primId].hit(ray);
+        // update cloest hit
+        closestHit = Trace::min(closestHit, tempHit);
+    }else{
+        // if not leaf
+        
+        // get left and right node info
+        size_t nodeId_Left = nodes[nodeId].l;
+        size_t nodeId_Right = nodes[nodeId].r;
+        BBox nodeBoxLeft = nodes[nodeId_Left].bbox;
+        BBox nodeBoxRight = nodes[nodeId_Right].bbox;
+        
+        Vec2 hitTimeLeft, hitTimeRight;
+        bool hitleft = nodeBoxLeft.hit(ray, hitTimeLeft);
+        bool hitRight = nodeBoxRight.hit(ray, hitTimeRight);
+        
+        // find first hit
+        if(!hitleft){
+            // if not hit left, find cloest in right node
+            closestHit = find_closest_hit(ray, nodeId_Right, closestHit);
+        }else if(!hitRight){
+            // if not hit right, find cloest in left node
+            closestHit = find_closest_hit(ray, nodeId_Left, closestHit);
+        }else if(hitleft && hitRight){
+            // if both hit, go in both branch
+            
+            // compare min hit time
+            size_t firstHitId = (hitTimeLeft.x <= hitTimeRight.x) ? nodeId_Left : nodeId_Right;
+            size_t secondHitId = (nodeId_Left == firstHitId) ? nodeId_Right : nodeId_Left;
+            float minHitTime = fmin(hitTimeLeft.x, hitTimeRight.x);
+            // update cloestHit
+            find_cloest_hit(ray, firstHitId, tempHit);
+            
+            if(!tempHit.hit || (tempHit.distance > minHitTime)){
+                // if not hit in first branch or actual hit time larger than expected
+                // go to second branch
+                find_closest_hit(ray, secondHitId, tempHit);
+            }
+        }
+        
+        // update cloest hit
+        closestHit = Trace::min(closestHit, tempHit);
+    }
+    
+    return closestHit;
+}
+
 
 template<typename Primitive>
 BVH<Primitive>::BVH(std::vector<Primitive>&& prims, size_t max_leaf_size) {
