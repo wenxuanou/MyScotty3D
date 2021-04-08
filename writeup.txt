@@ -5,4 +5,4 @@ Task 2:
 Task 3:
 - Fully implemented
 Task 4:
-- Working on it
+- Works well for complex mesh, does not display simple cube.

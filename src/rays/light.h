@@ -15,8 +15,8 @@ namespace PT {
 struct Light_Sample {
 
     Spectrum radiance;
-    Vec3 direction;
-    float distance;
+    Vec3 direction; // direction from hit point to light source
+    float distance; // distance from hit point to light source
     float pdf;
 
     void transform(const Mat4& T) {

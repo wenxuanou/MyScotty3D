@@ -30,7 +30,7 @@ Spectrum Pathtracer::trace_pixel(size_t x, size_t y) {
     Ray out = camera.generate_ray(xy_sampled / wh);
         
     // visualize ray
-    if(RNG::coin_flip(0.00005f)) log_ray(out, 10.0f);
+    if(RNG::coin_flip(0.000005f)) log_ray(out, 10.0f);
     
     return trace_ray(out);
 }
@@ -71,7 +71,10 @@ Spectrum Pathtracer::trace_ray(const Ray& ray) {
     // The starter code sets radiance_out to (0.5,0.5,0.5) so that you can test your geometry
     // queries before you implement path tracing. You should change this to (0,0,0) and accumulate
     // the direct and indirect lighting computed below.
-    Spectrum radiance_out = Spectrum(0.5f);
+    
+    //Spectrum radiance_out = Spectrum(0.5f);
+    
+    Spectrum radiance_out; // no light at the begining
     {
         auto sample_light = [&](const auto& light) {
             // If the light is discrete (e.g. a point light), then we only need
@@ -79,7 +82,7 @@ Spectrum Pathtracer::trace_ray(const Ray& ray) {
             int samples = light.is_discrete() ? 1 : (int)n_area_samples;
             for(int i = 0; i < samples; i++) {
 
-                Light_Sample sample = light.sample(hit.position);
+                Light_Sample sample = light.sample(hit.position);   // get light sample at hit point
                 Vec3 in_dir = world_to_object.rotate(sample.direction);
 
                 // If the light is below the horizon, ignore it
@@ -109,12 +112,21 @@ Spectrum Pathtracer::trace_ray(const Ray& ray) {
                 // Note: that along with the typical cos_theta, pdf factors, we divide by samples.
                 // This is because we're  doing another monte-carlo estimate of the lighting from
                 // area lights.
+                
+                
+                // get shadow ray, origin at intersection, point to light source
+                Ray shadowRay = Ray(hit.position, sample.direction);
+                // set ray bound, use EPS_F avoid self intersection
+                shadowRay.dist_bounds = Vec2(EPS_F, sample.distance - EPS_F);
+                // check hit point
+                Trace shadowHit = scene.hit(shadowRay); // accumulate radiance if not hit object
+                
+                // accumulate radiance from each light source
+//                radiance_out +=
+//                    (cos_theta / (samples * sample.pdf)) * sample.radiance * attenuation;
+                
                 radiance_out +=
-                    (cos_theta / (samples * sample.pdf)) * sample.radiance * attenuation;
-                
-                
-                
-                
+                    (cos_theta / (samples * sample.pdf)) * (!shadowHit.hit) * sample.radiance * attenuation;
                 
             }
         };
