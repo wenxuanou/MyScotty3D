@@ -92,6 +92,10 @@ Spectrum Pathtracer::trace_ray(const Ray& ray) {
                 Spectrum attenuation = bsdf.evaluate(out_dir, in_dir);
                 if(attenuation.luma() == 0.0f) continue;
 
+                
+                
+                
+                
                 // TODO (PathTracer): Task 4
                 // Construct a shadow ray and compute whether the intersected surface is
                 // in shadow. Only accumulate light if not in shadow.
@@ -107,6 +111,11 @@ Spectrum Pathtracer::trace_ray(const Ray& ray) {
                 // area lights.
                 radiance_out +=
                     (cos_theta / (samples * sample.pdf)) * sample.radiance * attenuation;
+                
+                
+                
+                
+                
             }
         };
 
