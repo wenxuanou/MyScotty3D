@@ -44,10 +44,6 @@ void BVH<Primitive>::build(std::vector<Primitive>&& prims, size_t max_leaf_size)
     new_node(box, 0, primitives.size(), 0, 0);
     root_idx = 0;
     
-    printf("original total number of primitives: %zu \n", primitives.size());
-    
-    //buildRecur(max_leaf_size, root_idx);
-    
     // number of buckets
     const int bNum = 32;
     
@@ -63,19 +59,18 @@ void BVH<Primitive>::build(std::vector<Primitive>&& prims, size_t max_leaf_size)
         }
         
         // split if node size too big, assume all nodes are leaves
-        Node n = nodes[nodeId]; // current node
+        //Node n = nodes[nodeId]; // current node
+        
         // bbox range of this node
-        float XBmin = n.bbox.min.x,
-              XBmax = n.bbox.max.x,
-              YBmin = n.bbox.min.y,
-              YBmax = n.bbox.max.y,
-              ZBmin = n.bbox.min.z,
-              ZBmax = n.bbox.max.z;
+        float XBmin = nodes[nodeId].bbox.min.x,
+              XBmax = nodes[nodeId].bbox.max.x,
+              YBmin = nodes[nodeId].bbox.min.y,
+              YBmax = nodes[nodeId].bbox.max.y,
+              ZBmin = nodes[nodeId].bbox.min.z,
+              ZBmax = nodes[nodeId].bbox.max.z;
         // initialize bucket, size to number of bucket, initialize to 0
         // row 0: number of primitives; row 1: area
-        //printf("here, nodeId: %zu \n", nodeId);
         float BX[2][bNum] = {}, BY[2][bNum] = {}, BZ[2][bNum] = {};
-        //printf("here 2, bNum: %d \n", bNum);
         
         // partition step
         float XStep = (XBmax - XBmin) / (bNum * 1.0f);
@@ -83,8 +78,8 @@ void BVH<Primitive>::build(std::vector<Primitive>&& prims, size_t max_leaf_size)
         float ZStep = (ZBmax - ZBmin) / (bNum * 1.0f);
         
         // start and end iterator in vector
-        auto start = primitives.begin() + n.start;
-        auto end = start + n.size;
+        auto start = primitives.begin() + nodes[nodeId].start;
+        auto end = start + nodes[nodeId].size;
         // find primitives location in each axis bucket
         // only iterate primitives included in current node
         for(auto it = start; it != end; it++){
@@ -107,7 +102,6 @@ void BVH<Primitive>::build(std::vector<Primitive>&& prims, size_t max_leaf_size)
         }
         
         // find lowest cost partition
-        //printf("find lowest cost \n");
         for(int count = 1; count < bNum; count++){
             
             BX[0][count] += BX[0][count - 1];               // number of primitives
@@ -119,12 +113,9 @@ void BVH<Primitive>::build(std::vector<Primitive>&& prims, size_t max_leaf_size)
             BZ[1][count] += BZ[1][count - 1];
         }
         // total surface area
-        float sN = n.bbox.surface_area();;
+        float sN = nodes[nodeId].bbox.surface_area();;
         // total number of primitives
-        size_t N = n.size;
-        
-        //printf("node start: %zu, node size: %zu, # of primitives in node: %zu \n", n.start, N, nodes.size());
-        //printf("total number of primitives before parition: %zu \n", primitives.size());
+        size_t N = nodes[nodeId].size;
         
         // initialize
         float XminCost = (BX[1][0] / sN * BX[0][0]) + ((sN - BX[1][0])/ sN * (N - BX[0][0]));
@@ -166,20 +157,13 @@ void BVH<Primitive>::build(std::vector<Primitive>&& prims, size_t max_leaf_size)
         float YBound = YBmin + YStep * YminId;
         float ZBound = ZBmin + ZStep * ZminId;
         // partition base on bound
-        //printf("partition \n");
-        
-        
-//        printf("start partition \n");
-//        printf("check overflow: %d \n", n.start+n.size < primitives.size());
         auto boundIt = std::partition(start, end,
                                       [=](const Primitive& prim){ return (prim.bbox().center().x < XBound)
                                                                 && (prim.bbox().center().y < YBound)
                                                                 && (prim.bbox().center().z < ZBound);
                                                         }
                                      );
-        
-//        printf("total number of primitives after parition: %zu \n", primitives.size());
-        
+                
         // if cannot not good partition, simply slit from middle
         if((start == boundIt) || (end == boundIt)){
             boundIt = start;
@@ -196,145 +180,15 @@ void BVH<Primitive>::build(std::vector<Primitive>&& prims, size_t max_leaf_size)
         for(auto it = boundIt; it != end; it++){
             bboxRight.enclose(it -> bbox());
         }
-        n.l = new_node(bboxLeft, n.start, (boundId - n.start), 0, 0);
-        n.r = new_node(bboxRight, boundId, (n.start + n.size - boundId), 0, 0);
+        nodes[nodeId].l = new_node(bboxLeft, nodes[nodeId].start, (boundId - nodes[nodeId].start), 0, 0);
+        nodes[nodeId].r = new_node(bboxRight, boundId, (nodes[nodeId].start + nodes[nodeId].size - boundId), 0, 0);
         
         // move to next node
         nodeId++;
     }
+    
     return;
 }
-
-/*
-// recursive building function
-template<typename Primitive>
-void BVH<Primitive>::buildRecur(size_t max_leaf_size, size_t nodeId){
-    
-    // no need to split if smaller than max size
-    if(nodes[nodeId].size <= max_leaf_size){ return; }
-    
-    // split if node size too big, assume all nodes are leaves
-    
-    // current node
-    Node n = nodes[nodeId];
-    // bbox range of this node
-    float XBmin = n.bbox.min.x,
-          XBmax = n.bbox.max.x,
-          YBmin = n.bbox.min.y,
-          YBmax = n.bbox.max.y,
-          ZBmin = n.bbox.min.z,
-          ZBmax = n.bbox.max.z;
-    // initialize bucket, size to number of bucket, initialize to 0
-    // row 0: number of primitives; row 1: area
-    const int bNum = 32;
-    float BX[2][bNum] = {}, BY[2][bNum] = {}, BZ[2][bNum] = {};
-    // partition step
-    float XStep = (XBmax - XBmin) / (bNum * 1.0f);
-    float YStep = (YBmax - YBmin) / (bNum * 1.0f);
-    float ZStep = (ZBmax - ZBmin) / (bNum * 1.0f);
-    
-    // start and end iterator in vector
-    auto start = primitives.begin() + n.start;
-    auto end = start + n.size;
-    
-    // find primitives location in each axis bucket
-    for(auto it = start; it != end; it++){
-        
-        int buckIdX = floor(it -> bbox().center().x / XStep);
-        int buckIdY = floor(it -> bbox().center().y / YStep);
-        int buckIdZ = floor(it -> bbox().center().z / ZStep);
-        
-        BX[0][buckIdX] += 1.0;                            // number of primitives
-        BY[0][buckIdY] += 1.0;
-        BZ[0][buckIdZ] += 1.0;
-        
-        BX[1][buckIdX] += it -> bbox().surface_area();   // surface area
-        BY[1][buckIdY] += it -> bbox().surface_area();
-        BZ[1][buckIdZ] += it -> bbox().surface_area();
-    }
-    
-    
-    // find lowest cost partition
-    for(int count = 1; count < bNum; count++){
-        
-        BX[0][count] += BX[0][count - 1];               // number of primitives
-        BY[0][count] += BY[0][count - 1];
-        BZ[0][count] += BZ[0][count - 1];
-        
-        BX[1][count] += BX[1][count - 1];               // surface area
-        BY[1][count] += BY[1][count - 1];
-        BZ[1][count] += BZ[1][count - 1];
-    }
-    // total surface area
-    float sN = n.bbox.surface_area();;
-    // total number of primitives
-    size_t N = n.size;
-    
-    // initialize
-    float XminCost = (BX[1][0] / sN * BX[0][0]) + ((sN - BX[1][0])/ sN * (N - BX[0][0]));
-    float YminCost = (BY[1][0] / sN * BY[0][0]) + ((sN - BY[1][0])/ sN * (N - BY[0][0]));
-    float ZminCost = (BZ[1][0] / sN * BZ[0][0]) + ((sN - BZ[1][0])/ sN * (N - BZ[0][0]));
-    int XminId(0), YminId(0), ZminId(0);
-
-    // find the minimal cost and id
-    for(int count = 1; count < bNum ; count++){
-        float XCost = (BX[1][count] - BX[1][count - 1]) / sN * (BX[0][count] - BX[0][count - 1])
-                    + (sN - (BX[1][count] - BX[1][count - 1])) / sN * (sN - (BX[0][count] - BX[0][count - 1]));
-        
-        float YCost = (BY[1][count] - BY[1][count - 1]) / sN * (BY[0][count] - BY[0][count - 1])
-                    + (sN - (BY[1][count] - BY[1][count - 1])) / sN * (sN - (BY[0][count] - BY[0][count - 1]));
-        
-        float ZCost = (BZ[1][count] - BZ[1][count - 1]) / sN * (BZ[0][count] - BZ[0][count - 1])
-                    + (sN - (BZ[1][count] - BZ[1][count - 1])) / sN * (sN - (BZ[0][count] - BZ[0][count - 1]));
-        
-        if(XCost < XminCost){
-            XminCost = XCost;
-            XminId = count;
-        }
-        
-        if(YCost < YminCost){
-            YminCost = YCost;
-            YminId = count;
-        }
-        
-        if(ZCost < ZminCost){
-            ZminCost = ZCost;
-            ZminId = count;
-        }
-    }
-    
-    
-    // create left and right node based on cost
-    float XBound = XBmin + XStep * XminId;
-    float YBound = YBmin + YStep * YminId;
-    float ZBound = ZBmin + ZStep * ZminId;
-    
-    BBox bboxLeft, bboxRight;
-    
-    // partition base on bound
-    auto boundIt = std::partition(start, end,
-                                  [&](const Primitive& prim){ return (prim.bbox().center().x < XBound)
-                                                            && (prim.bbox().center().y < YBound)
-                                                            && (prim.bbox().center().z < ZBound);
-                                                    }
-                                 );
-    size_t boundId = size_t(std::distance(primitives.begin(), boundIt));    // get index of bound
-    
-    for(auto it = start; it != boundIt; it++){
-        bboxLeft.enclose(it -> bbox());
-    }
-    for(auto it = boundIt; it != end; it++){
-        bboxRight.enclose(it -> bbox());
-    }
-    n.l = new_node(bboxLeft, 0, boundId, 0, 0);
-    n.r = new_node(bboxRight, boundId, N, 0, 0);
-    
-    // recursive call
-    buildRecur(max_leaf_size, n.l);
-    buildRecur(max_leaf_size, n.r);
-    
-}
-*/
 
 template<typename Primitive> Trace BVH<Primitive>::hit(const Ray& ray) const {
 
@@ -346,82 +200,34 @@ template<typename Primitive> Trace BVH<Primitive>::hit(const Ray& ray) const {
     // The starter code simply iterates through all the primitives.
     // Again, remember you can use hit() on any Primitive value.
 
-//    Trace ret;
-//    for(const Primitive& prim : primitives) {
-//        Trace hit = prim.hit(ray);
-//        ret = Trace::min(ret, hit);
-//    }
-    
-//    // initialize
-//    Trace ret, hit;
-//    size_t nodeId = root_idx;
-//    Vec2 minHitTime; // hitTime.x: in time; hitTime.y: out time
-//    bool isHit;
-//
-//    // check root node
-//    BBox nodeBox = nodes[nodeId].bbox;
-//    isHit = nodeBox.hit(ray, minHitTime);   // initialize hit time
-//    // skip if not hit root
-//    if(!isHit){ return ret }
-//
-//    do{
-//        // get left and right node info
-//        size_t nodeId_Left = nodes[nodeId].l;
-//        size_t nodeId_right = nodes[nodeId].r;
-//        BBox nodeBoxLeft = nodes[nodeId_Left].bbox;
-//        BBox nodeBoxRight = nodes[nodeId_right].bbox;
-//
-//        Vec2 hitTimeLeft, hitTimeRight;
-//        bool hitleft = nodeBoxLeft.hit(ray, hitTimeLeft);
-//        bool hitRight = nodeBoxRight.hit(ray, hitTimeRight);
-//
-//        if(!hitleft){
-//            // if not hit left node
-//            nodeId = nodeId_right;          // continue on right node
-//            minHitTime = hitTimeRight;      // update new hit time
-//        }else if(!hitRight){
-//            // if not hit right node
-//            nodeId = nodeId_Left;           // coninue on left node
-//            minHitTime = hitTimeLeft;       // update new hit time
-//        }else if(hitleft && hitRight){
-//            // if hit both node, check min hit time
-//            if(hitTimeLeft.x <= hitTimeRight.x){
-//                nodeId = nodeId_Left;           // coninue on left node
-//                minHitTime = hitTimeLeft;       // update new hit time
-//            }else{
-//                nodeId = nodeId_right;          // continue on right node
-//                minHitTime = hitTimeRight;      // update new hit time
-//            }
-//
-//            //TODO: cannot handle case when first not hit second hit
-//
-//        }
-//
-//    }while(!nodes[nodeId].is_leaf());       // loop until reach leaf node
-    
     Trace ret;
     size_t nodeId = root_idx;
+    Vec2 hitTime;
     
-    // recursively find cloest hit
-    ret = find_closest_hit(ray, nodeId, ret);
-    
+    if(nodes[nodeId].bbox.hit(ray, hitTime)){
+        // recursively find cloest hit
+        find_closest_hit(ray, nodeId, ret);
+    }
+        
     return ret;
 }
 
 
 // recursive find cloest hit
 template<typename Primitive>
-Trace BVH<Primitive>::find_closest_hit(const Ray& ray, size_t nodeId, Trace closestHit) const{
-    
-    Trace tempHit;
-    
+void BVH<Primitive>::find_closest_hit(const Ray& ray, size_t nodeId, Trace& closestHit) const{
     // check if leaf node
     if(nodes[nodeId].is_leaf()){
         // if leaf, check if hit primitive
         size_t primId = nodes[nodeId].start;
-        tempHit = primitives[primId].hit(ray);
-        // update cloest hit
-        closestHit = Trace::min(closestHit, tempHit);
+        Trace tempHit;
+        
+        // for every primitve in node
+        for(size_t countPrim = primId; countPrim < primId + nodes[nodeId].size; countPrim++) {
+            tempHit = primitives[countPrim].hit(ray);
+            closestHit = Trace::min(closestHit, tempHit);
+        }
+
     }else{
         // if not leaf
         
@@ -438,10 +244,10 @@ Trace BVH<Primitive>::find_closest_hit(const Ray& ray, size_t nodeId, Trace clo
         // find first hit
         if(!hitleft){
             // if not hit left, find cloest in right node
-            closestHit = find_closest_hit(ray, nodeId_Right, closestHit);
+            find_closest_hit(ray, nodeId_Right, closestHit);
         }else if(!hitRight){
             // if not hit right, find cloest in left node
-            closestHit = find_closest_hit(ray, nodeId_Left, closestHit);
+            find_closest_hit(ray, nodeId_Left, closestHit);
         }else if(hitleft && hitRight){
             // if both hit, go in both branch
             
@@ -450,20 +256,19 @@ Trace BVH<Primitive>::find_closest_hit(const Ray& ray, size_t nodeId, Trace clo
             size_t secondHitId = (nodeId_Left == firstHitId) ? nodeId_Right : nodeId_Left;
             float minHitTime = fmin(hitTimeLeft.x, hitTimeRight.x);
             // update cloestHit
-            find_cloest_hit(ray, firstHitId, tempHit);
+            find_closest_hit(ray, firstHitId, closestHit);
             
-            if(!tempHit.hit || (tempHit.distance > minHitTime)){
+            if(!closestHit.hit || closestHit.distance > minHitTime){
                 // if not hit in first branch or actual hit time larger than expected
                 // go to second branch
-                find_closest_hit(ray, secondHitId, tempHit);
+                find_closest_hit(ray, secondHitId, closestHit);
             }
+            
         }
         
-        // update cloest hit
-        closestHit = Trace::min(closestHit, tempHit);
     }
     
-    return closestHit;
+    return;
 }
 
 

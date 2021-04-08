@@ -38,11 +38,8 @@ private:
         friend class BVH<Primitive>;
     };
     
-    // recursive build function
-    //void buildRecur(size_t max_leaf_size, size_t nodeId);
-    
     // recursive find cloest hit
-    Trace find_closest_hit(const Ray& ray, size_t nodeId, Trace closestHit) const;
+    void find_closest_hit(const Ray& ray, size_t nodeId, Trace& closestHit) const;
     
     // start: start index of primitives in primitives array
     // size: range of index in primitives list, # of primitives in subtrees
