@@ -36,28 +36,33 @@ Trace Sphere::hit(const Ray& ray) const {
     // get ray origin and unit direction
     Vec3 o = ray.point;
     Vec3 d = ray.dir;
+    float b = dot(o,d);
     
     // compute distance
     float t;
-    float t_in = -1.0f * dot(o, d) + sqrt(pow(dot(o,d),2) - o.norm_squared() + 1.0f);
-    float t_out = -1.0f * dot(o, d) - sqrt(pow(dot(o,d),2) - o.norm_squared() + 1.0f);
+    float t_in = -1.0f * b + sqrt(b * b - o.norm_squared() + 1.0f);
+    float t_out = -1.0f * b - sqrt(b * b - o.norm_squared() + 1.0f);
     
     // find the first intersection which within the dist_bound
     t = fmin(t_in, t_out);
     if(t_in < ray.dist_bounds.x || t_in > ray.dist_bounds.y){ t = t_out; }
     if(t_out < ray.dist_bounds.x || t_out > ray.dist_bounds.y){ t = t_in; }
+    // check whether has a valid intersection
+    if( isnan(t) ){ return ret; }
+    
     if(t < ray.dist_bounds.x || t > ray.dist_bounds.y){ return ret; }
     
+    
     // compute hit point
-    Vec3 p = o + t * d;
+    Vec3 p = o + t * d; // sphere centered at zero
     
     // check whether hit point on sphere
-    if(p.norm() != radius){ return ret; }
-    
-    ret.hit = true;
-    ret.distance = t;
-    ret.position = p;
-    ret.normal = p.unit();  // unit normal, sphere centered at origin
+    //if(std::abs(p.norm() - radius) <= EPS_F){
+        ret.hit = true;
+        ret.distance = t;
+        ret.position = p;
+        ret.normal = p.unit();  // unit normal, sphere centered at origin
+    //}
     
     return ret;
 }
