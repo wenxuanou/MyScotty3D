@@ -21,7 +21,7 @@ public:
     BVH& operator=(const BVH& src) = delete;
 
     BBox bbox() const;
-    Trace hit(const Ray& ray) const;
+    Trace hit(const Ray& ray, bool shadowRay = false) const;
 
     BVH copy() const;
     size_t visualize(GL::Lines& lines, GL::Lines& active, size_t level, const Mat4& trans) const;
@@ -39,7 +39,7 @@ private:
     };
     
     // recursive find cloest hit
-    void find_closest_hit(const Ray& ray, size_t nodeId, Trace& closestHit) const;
+    void find_closest_hit(const Ray& ray, size_t nodeId, Trace& closestHit, bool shadowRay = false) const;
     
     // start: start index of primitives in primitives array
     // size: range of index in primitives list, # of primitives in subtrees

@@ -1,4 +1,4 @@
-
+    
 #include "../rays/bvh.h"
 #include "debug.h"
 #include <stack>
@@ -46,6 +46,8 @@ void BVH<Primitive>::build(std::vector<Primitive>&& prims, size_t max_leaf_size)
     
     // number of buckets
     const int bNum = 32;
+    
+    const float delSize = EPS_F / 2; // small increase in size for zero volumn box, EPS_F * 10
     
     // iterate through nodes while adding new nodes
     // using index
@@ -175,10 +177,48 @@ void BVH<Primitive>::build(std::vector<Primitive>&& prims, size_t max_leaf_size)
         // build up bounding box
         BBox bboxLeft, bboxRight;
         for(auto it = start; it != boundIt; it++){
-            bboxLeft.enclose(it -> bbox());
+            // handle axis-aline triangle with 0 volumn bbox
+            Vec3 minVertex = it -> bbox().min;
+            Vec3 maxVertex = it -> bbox().max;
+            Vec3 diff = maxVertex - minVertex;
+            // add a small value
+            if(diff.x == 0){
+                maxVertex += Vec3(delSize, 0.0f, 0.0f);
+                minVertex -= Vec3(delSize, 0.0f, 0.0f);
+            }
+            if(diff.y == 0){
+                maxVertex += Vec3(0.0f, delSize, 0.0f);
+                minVertex -= Vec3(0.0f, delSize, 0.0f);
+            }
+            if(diff.z == 0){
+                maxVertex += Vec3(0.0f, 0.0f, delSize);
+                minVertex -= Vec3(0.0f, 0.0f, delSize);
+            }
+            
+            // expand bbox
+            bboxLeft.enclose(BBox(minVertex, maxVertex));
         }
         for(auto it = boundIt; it != end; it++){
-            bboxRight.enclose(it -> bbox());
+            // handle axis-aline triangle with 0 volumn bbox
+            Vec3 minVertex = it -> bbox().min;
+            Vec3 maxVertex = it -> bbox().max;
+            Vec3 diff = maxVertex - minVertex;
+            // add a small value
+            if(diff.x == 0){
+                maxVertex += Vec3(delSize, 0.0f, 0.0f);
+                minVertex -= Vec3(delSize, 0.0f, 0.0f);
+            }
+            if(diff.y == 0){
+                maxVertex += Vec3(0.0f, delSize, 0.0f);
+                minVertex -= Vec3(0.0f, delSize, 0.0f);
+            }
+            if(diff.z == 0){
+                maxVertex += Vec3(0.0f, 0.0f, delSize);
+                minVertex -= Vec3(0.0f, 0.0f, delSize);
+            }
+            
+            // expand bbox
+            bboxRight.enclose(BBox(minVertex, maxVertex));
         }
         nodes[nodeId].l = new_node(bboxLeft, nodes[nodeId].start, (boundId - nodes[nodeId].start), 0, 0);
         nodes[nodeId].r = new_node(bboxRight, boundId, (nodes[nodeId].start + nodes[nodeId].size - boundId), 0, 0);
@@ -187,10 +227,27 @@ void BVH<Primitive>::build(std::vector<Primitive>&& prims, size_t max_leaf_size)
         nodeId++;
     }
     
+    
+    /*
+    // print entire bvh
+    for(size_t nodeId = 0; nodeId < nodes.size(); nodeId++){
+        printf("nodeID: %zu ", nodeId);
+        printf("bbox min: (%f, %f, %f) ",
+               nodes[nodeId].bbox.min.x,
+               nodes[nodeId].bbox.min.y,
+               nodes[nodeId].bbox.min.z);
+        printf("bbox max: (%f, %f, %f) ",
+               nodes[nodeId].bbox.max.x,
+               nodes[nodeId].bbox.max.y,
+               nodes[nodeId].bbox.max.z);
+        printf("\n");
+    }
+    */
+    
     return;
 }
 
-template<typename Primitive> Trace BVH<Primitive>::hit(const Ray& ray) const {
+template<typename Primitive> Trace BVH<Primitive>::hit(const Ray& ray, bool shadowRay) const {
 
     // TODO (PathTracer): Task 3
     // Implement ray - BVH intersection test. A ray intersects
@@ -206,7 +263,8 @@ template<typename Primitive> Trace BVH<Primitive>::hit(const Ray& ray) const {
     
     if(nodes[nodeId].bbox.hit(ray, hitTime)){
         // recursively find cloest hit
-        find_closest_hit(ray, nodeId, ret);
+        if(shadowRay){ printf("recursive search in bvh: \n"); }
+        find_closest_hit(ray, nodeId, ret, shadowRay);
     }
         
     return ret;
@@ -215,17 +273,44 @@ template<typename Primitive> Trace BVH<Primitive>::hit(const Ray& ray) const {
 
 // recursive find cloest hit
 template<typename Primitive>
-void BVH<Primitive>::find_closest_hit(const Ray& ray, size_t nodeId, Trace& closestHit) const{
+void BVH<Primitive>::find_closest_hit(const Ray& ray, size_t nodeId, Trace& closestHit, bool shadowRay) const{
+    
+    
+    // TODO: rewrite this, fix intersection problem
+    
+    // debugging shadow ray
+    //if(shadowRay){ printf("nodeID: %zu \n", nodeId); }
+    
+
     // check if leaf node
     if(nodes[nodeId].is_leaf()){
         // if leaf, check if hit primitive
         size_t primId = nodes[nodeId].start;
-        Trace tempHit;
         
+        Trace tempHit;
+
         // for every primitve in node
         for(size_t countPrim = primId; countPrim < primId + nodes[nodeId].size; countPrim++) {
             tempHit = primitives[countPrim].hit(ray);
-            closestHit = Trace::min(closestHit, tempHit);
+            
+            closestHit = Trace::min(closestHit, tempHit);   // return closest hit
+            
+            /*
+            if(!shadowRay){
+                // for forward tracing
+                closestHit = Trace::min(closestHit, tempHit);   // return closest hit
+                
+            }else{
+                if(tempHit.hit){
+                    // for detecting shadow ray
+                    closestHit = tempHit;   // only return it hit primitive
+                }
+                
+                closestHit = tempHit;
+                
+                //printf("node id: %zu, hit prim#: %zu, is hit: %d \n", nodeId, countPrim, tempHit.hit);
+            }
+            */
         }
 
     }else{
@@ -251,11 +336,26 @@ void BVH<Primitive>::find_closest_hit(const Ray& ray, size_t nodeId, Trace& clos
         }else if(hitleft && hitRight){
             // if both hit, go in both branch
             
+            // handle case when ray origin from inside of box
+            float leftTime, rightTime;
+            if(hitTimeLeft.x < 0){
+                leftTime = hitTimeLeft.y;
+            }else{
+                leftTime = hitTimeLeft.x;
+            }
+            
+            if(hitTimeRight.x < 0){
+                rightTime = hitTimeRight.y;
+            }else{
+                rightTime = hitTimeRight.x;
+            }
+            
+            float minHitTime = fmin(leftTime, rightTime);
+                
             // compare min hit time
-            size_t firstHitId = (hitTimeLeft.x <= hitTimeRight.x) ? nodeId_Left : nodeId_Right;
+            size_t firstHitId = (leftTime <= rightTime) ? nodeId_Left : nodeId_Right;
             size_t secondHitId = (nodeId_Left == firstHitId) ? nodeId_Right : nodeId_Left;
-            float minHitTime = fmin(hitTimeLeft.x, hitTimeRight.x);
-            // update cloestHit
+                        // update cloestHit
             find_closest_hit(ray, firstHitId, closestHit);
             
             if(!closestHit.hit || closestHit.distance > minHitTime){
@@ -263,6 +363,7 @@ void BVH<Primitive>::find_closest_hit(const Ray& ray, size_t nodeId, Trace& clos
                 // go to second branch
                 find_closest_hit(ray, secondHitId, closestHit);
             }
+
             
         }
         
