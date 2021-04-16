@@ -43,206 +43,221 @@ void BVH<Primitive>::build(std::vector<Primitive>&& prims, size_t max_leaf_size)
 
     new_node(box, 0, primitives.size(), 0, 0);
     root_idx = 0;
+    int level = 0;
     
+    buildChild(root_idx, prims, max_leaf_size, level);
+    
+    return;
+}
+
+
+// TODO: rewrite bvh build in recursive form
+template<typename Primitive>
+void BVH<Primitive>::buildChild(size_t parentId, std::vector<Primitive>& prims, size_t max_leaf_size, int level){
     // number of buckets
     const int bNum = 32;
+    // small increase in size for zero volumn box, EPS_F/2
+    const float delSize = EPS_F / 2.0f;
     
-    const float delSize = EPS_F / 2; // small increase in size for zero volumn box, EPS_F * 10
+    // small enough, no need to split
+    if(nodes[parentId].size <= max_leaf_size){ return; }
     
-    // iterate through nodes while adding new nodes
-    // using index
-    size_t nodeId = 0;
-    while(nodeId < nodes.size()){
+    
+    // bbox range of this node
+    float XBmin = nodes[parentId].bbox.min.x,
+          XBmax = nodes[parentId].bbox.max.x,
+          YBmin = nodes[parentId].bbox.min.y,
+          YBmax = nodes[parentId].bbox.max.y,
+          ZBmin = nodes[parentId].bbox.min.z,
+          ZBmax = nodes[parentId].bbox.max.z;
+    
+    // initialize bucket, size to number of bucket, initialize to 0
+    // row 0: number of primitives; row 1: area
+    float BX[2][bNum] = {}, BY[2][bNum] = {}, BZ[2][bNum] = {};
+    
+    // partition step
+    float XStep = (XBmax - XBmin) / (bNum * 1.0f);
+    float YStep = (YBmax - YBmin) / (bNum * 1.0f);
+    float ZStep = (ZBmax - ZBmin) / (bNum * 1.0f);
+    
+    // start and end iterator in vector
+    auto start = primitives.begin() + nodes[parentId].start;
+    auto end = start + nodes[parentId].size;
+    
+    // find primitives location in each axis bucket
+    // only iterate primitives included in current node
+    for(auto it = start; it != end; it++){
         
-        // no need to split if smaller than max size
-        if(nodes[nodeId].size <= max_leaf_size){
-            nodeId++;
-            continue;
+        int buckIdX = floor( ((it -> bbox().center().x) - XBmin) / XStep );
+        int buckIdY = floor( ((it -> bbox().center().y) - YBmin) / YStep );
+        int buckIdZ = floor( ((it -> bbox().center().z) - ZBmin) / ZStep );
+        // avoid out of bound
+        buckIdX = std::min(buckIdX, (bNum - 1));
+        buckIdY = std::min(buckIdY, (bNum - 1));
+        buckIdZ = std::min(buckIdZ, (bNum - 1));
+        
+        BX[0][buckIdX] += 1.0;                            // number of primitives
+        BY[0][buckIdY] += 1.0;
+        BZ[0][buckIdZ] += 1.0;
+        
+        BX[1][buckIdX] += it -> bbox().surface_area();   // surface area
+        BY[1][buckIdY] += it -> bbox().surface_area();
+        BZ[1][buckIdZ] += it -> bbox().surface_area();
+    }
+    
+    // find lowest cost partition
+    for(int count = 1; count < bNum; count++){
+       
+       BX[0][count] += BX[0][count - 1];               // number of primitives
+       BY[0][count] += BY[0][count - 1];
+       BZ[0][count] += BZ[0][count - 1];
+       
+       BX[1][count] += BX[1][count - 1];               // surface area
+       BY[1][count] += BY[1][count - 1];
+       BZ[1][count] += BZ[1][count - 1];
+    }
+    // total surface area
+    float sN = nodes[parentId].bbox.surface_area();;
+    // total number of primitives
+    size_t N = nodes[parentId].size;
+    
+    // initialize
+    float XminCost = (BX[1][0] / sN * BX[0][0]) + ((sN - BX[1][0])/ sN * (N - BX[0][0]));
+    float YminCost = (BY[1][0] / sN * BY[0][0]) + ((sN - BY[1][0])/ sN * (N - BY[0][0]));
+    float ZminCost = (BZ[1][0] / sN * BZ[0][0]) + ((sN - BZ[1][0])/ sN * (N - BZ[0][0]));
+    int XminId(0), YminId(0), ZminId(0);
+    
+    // find the minimal cost and id
+    for(int count = 1; count < bNum ; count++){
+        float XCost = (BX[1][count] - BX[1][count - 1]) / sN * (BX[0][count] - BX[0][count - 1])
+                    + (sN - (BX[1][count] - BX[1][count - 1])) / sN * (sN - (BX[0][count] - BX[0][count - 1]));
+        
+        float YCost = (BY[1][count] - BY[1][count - 1]) / sN * (BY[0][count] - BY[0][count - 1])
+                    + (sN - (BY[1][count] - BY[1][count - 1])) / sN * (sN - (BY[0][count] - BY[0][count - 1]));
+        
+        float ZCost = (BZ[1][count] - BZ[1][count - 1]) / sN * (BZ[0][count] - BZ[0][count - 1])
+                    + (sN - (BZ[1][count] - BZ[1][count - 1])) / sN * (sN - (BZ[0][count] - BZ[0][count - 1]));
+        
+        if(XCost < XminCost){
+            XminCost = XCost;
+            XminId = count;
         }
         
-        // split if node size too big, assume all nodes are leaves
-        //Node n = nodes[nodeId]; // current node
-        
-        // bbox range of this node
-        float XBmin = nodes[nodeId].bbox.min.x,
-              XBmax = nodes[nodeId].bbox.max.x,
-              YBmin = nodes[nodeId].bbox.min.y,
-              YBmax = nodes[nodeId].bbox.max.y,
-              ZBmin = nodes[nodeId].bbox.min.z,
-              ZBmax = nodes[nodeId].bbox.max.z;
-        // initialize bucket, size to number of bucket, initialize to 0
-        // row 0: number of primitives; row 1: area
-        float BX[2][bNum] = {}, BY[2][bNum] = {}, BZ[2][bNum] = {};
-        
-        // partition step
-        float XStep = (XBmax - XBmin) / (bNum * 1.0f);
-        float YStep = (YBmax - YBmin) / (bNum * 1.0f);
-        float ZStep = (ZBmax - ZBmin) / (bNum * 1.0f);
-        
-        // start and end iterator in vector
-        auto start = primitives.begin() + nodes[nodeId].start;
-        auto end = start + nodes[nodeId].size;
-        // find primitives location in each axis bucket
-        // only iterate primitives included in current node
-        for(auto it = start; it != end; it++){
-            
-            int buckIdX = floor( ((it -> bbox().center().x) - XBmin) / XStep );
-            int buckIdY = floor( ((it -> bbox().center().y) - YBmin) / YStep );
-            int buckIdZ = floor( ((it -> bbox().center().z) - ZBmin) / ZStep );
-            // avoid out of bound
-            buckIdX = std::min(buckIdX, (bNum - 1));
-            buckIdY = std::min(buckIdY, (bNum - 1));
-            buckIdZ = std::min(buckIdZ, (bNum - 1));
-            
-            BX[0][buckIdX] += 1.0;                            // number of primitives
-            BY[0][buckIdY] += 1.0;
-            BZ[0][buckIdZ] += 1.0;
-            
-            BX[1][buckIdX] += it -> bbox().surface_area();   // surface area
-            BY[1][buckIdY] += it -> bbox().surface_area();
-            BZ[1][buckIdZ] += it -> bbox().surface_area();
+        if(YCost < YminCost){
+            YminCost = YCost;
+            YminId = count;
         }
         
-        // find lowest cost partition
-        for(int count = 1; count < bNum; count++){
-            
-            BX[0][count] += BX[0][count - 1];               // number of primitives
-            BY[0][count] += BY[0][count - 1];
-            BZ[0][count] += BZ[0][count - 1];
-            
-            BX[1][count] += BX[1][count - 1];               // surface area
-            BY[1][count] += BY[1][count - 1];
-            BZ[1][count] += BZ[1][count - 1];
+        if(ZCost < ZminCost){
+            ZminCost = ZCost;
+            ZminId = count;
         }
-        // total surface area
-        float sN = nodes[nodeId].bbox.surface_area();;
-        // total number of primitives
-        size_t N = nodes[nodeId].size;
-        
-        // initialize
-        float XminCost = (BX[1][0] / sN * BX[0][0]) + ((sN - BX[1][0])/ sN * (N - BX[0][0]));
-        float YminCost = (BY[1][0] / sN * BY[0][0]) + ((sN - BY[1][0])/ sN * (N - BY[0][0]));
-        float ZminCost = (BZ[1][0] / sN * BZ[0][0]) + ((sN - BZ[1][0])/ sN * (N - BZ[0][0]));
-        int XminId(0), YminId(0), ZminId(0);
-
-        // find the minimal cost and id
-        for(int count = 1; count < bNum ; count++){
-            float XCost = (BX[1][count] - BX[1][count - 1]) / sN * (BX[0][count] - BX[0][count - 1])
-                        + (sN - (BX[1][count] - BX[1][count - 1])) / sN * (sN - (BX[0][count] - BX[0][count - 1]));
-            
-            float YCost = (BY[1][count] - BY[1][count - 1]) / sN * (BY[0][count] - BY[0][count - 1])
-                        + (sN - (BY[1][count] - BY[1][count - 1])) / sN * (sN - (BY[0][count] - BY[0][count - 1]));
-            
-            float ZCost = (BZ[1][count] - BZ[1][count - 1]) / sN * (BZ[0][count] - BZ[0][count - 1])
-                        + (sN - (BZ[1][count] - BZ[1][count - 1])) / sN * (sN - (BZ[0][count] - BZ[0][count - 1]));
-            
-            if(XCost < XminCost){
-                XminCost = XCost;
-                XminId = count;
-            }
-            
-            if(YCost < YminCost){
-                YminCost = YCost;
-                YminId = count;
-            }
-            
-            if(ZCost < ZminCost){
-                ZminCost = ZCost;
-                ZminId = count;
-            }
+    }
+    
+    // find min cost amount three axis
+    bool divideX = false, divideY = false, divideZ = false;
+    if(XminCost <= YminCost){
+        if(XminCost <= ZminCost){
+            divideX = true;
+        }else{
+            divideZ = true;
         }
-        
-        
-        // create left and right node based on cost
-        
-        float XBound = XBmin + XStep * XminId;
-        float YBound = YBmin + YStep * YminId;
-        float ZBound = ZBmin + ZStep * ZminId;
-        // partition base on bound
-        auto boundIt = std::partition(start, end,
-                                      [=](const Primitive& prim){ return (prim.bbox().center().x < XBound)
-                                                                && (prim.bbox().center().y < YBound)
-                                                                && (prim.bbox().center().z < ZBound);
-                                                        }
-                                     );
-                
-        // if cannot not good partition, simply slit from middle
-        if((start == boundIt) || (end == boundIt)){
-            boundIt = start;
-            std::advance (boundIt, floor(std::distance(start, end) / 2));
+    }else{
+        if(YminCost <= ZminCost){
+            divideY = true;
+        }else{
+            divideZ = true;
         }
-        size_t boundId = size_t(std::distance(primitives.begin(), boundIt));    // get index of bound
-
-        
-        // build up bounding box
-        BBox bboxLeft, bboxRight;
-        for(auto it = start; it != boundIt; it++){
-            // handle axis-aline triangle with 0 volumn bbox
-            Vec3 minVertex = it -> bbox().min;
-            Vec3 maxVertex = it -> bbox().max;
-            Vec3 diff = maxVertex - minVertex;
-            // add a small value
-            if(diff.x == 0){
-                maxVertex += Vec3(delSize, 0.0f, 0.0f);
-                minVertex -= Vec3(delSize, 0.0f, 0.0f);
-            }
-            if(diff.y == 0){
-                maxVertex += Vec3(0.0f, delSize, 0.0f);
-                minVertex -= Vec3(0.0f, delSize, 0.0f);
-            }
-            if(diff.z == 0){
-                maxVertex += Vec3(0.0f, 0.0f, delSize);
-                minVertex -= Vec3(0.0f, 0.0f, delSize);
-            }
-            
-            // expand bbox
-            bboxLeft.enclose(BBox(minVertex, maxVertex));
-        }
-        for(auto it = boundIt; it != end; it++){
-            // handle axis-aline triangle with 0 volumn bbox
-            Vec3 minVertex = it -> bbox().min;
-            Vec3 maxVertex = it -> bbox().max;
-            Vec3 diff = maxVertex - minVertex;
-            // add a small value
-            if(diff.x == 0){
-                maxVertex += Vec3(delSize, 0.0f, 0.0f);
-                minVertex -= Vec3(delSize, 0.0f, 0.0f);
-            }
-            if(diff.y == 0){
-                maxVertex += Vec3(0.0f, delSize, 0.0f);
-                minVertex -= Vec3(0.0f, delSize, 0.0f);
-            }
-            if(diff.z == 0){
-                maxVertex += Vec3(0.0f, 0.0f, delSize);
-                minVertex -= Vec3(0.0f, 0.0f, delSize);
-            }
-            
-            // expand bbox
-            bboxRight.enclose(BBox(minVertex, maxVertex));
-        }
-        nodes[nodeId].l = new_node(bboxLeft, nodes[nodeId].start, (boundId - nodes[nodeId].start), 0, 0);
-        nodes[nodeId].r = new_node(bboxRight, boundId, (nodes[nodeId].start + nodes[nodeId].size - boundId), 0, 0);
-        
-        // move to next node
-        nodeId++;
     }
     
     
-    /*
-    // print entire bvh
-    for(size_t nodeId = 0; nodeId < nodes.size(); nodeId++){
-        printf("nodeID: %zu ", nodeId);
-        printf("bbox min: (%f, %f, %f) ",
-               nodes[nodeId].bbox.min.x,
-               nodes[nodeId].bbox.min.y,
-               nodes[nodeId].bbox.min.z);
-        printf("bbox max: (%f, %f, %f) ",
-               nodes[nodeId].bbox.max.x,
-               nodes[nodeId].bbox.max.y,
-               nodes[nodeId].bbox.max.z);
-        printf("\n");
+    // create left and right node based on cost
+            
+    float XBound = XBmin + XStep * XminId;
+    float YBound = YBmin + YStep * YminId;
+    float ZBound = ZBmin + ZStep * ZminId;
+    
+    // partition base on bound
+    // which axis depends on level
+    auto boundIt = start;
+    
+    if(divideX){
+        // x axis
+        boundIt = std::partition(start, end,
+                                  [=](const Primitive& prim){ return (prim.bbox().center().x < XBound); }
+                                  );
+    }else if (divideY){
+        boundIt = std::partition(start, end,
+                                  [=](const Primitive& prim){ return (prim.bbox().center().y < YBound); }
+                                  );
+    }else if(divideZ){
+        boundIt = std::partition(start, end,
+                                  [=](const Primitive& prim){ return (prim.bbox().center().z < ZBound); }
+                                  );
     }
-    */
+    
+    // if cannot not good partition, simply slit from middle
+    if((start == boundIt) || (end == boundIt)){
+        boundIt = start;
+        std::advance (boundIt, floor(std::distance(start, end) / 2));
+    }
+    
+    size_t boundId = size_t(std::distance(primitives.begin(), boundIt));    // get index of bound
+    
+    // build up bounding box
+    BBox bboxLeft, bboxRight;
+    for(auto it = start; it != boundIt; it++){
+        // handle axis-aline triangle with 0 volumn bbox
+        Vec3 minVertex = it -> bbox().min;
+        Vec3 maxVertex = it -> bbox().max;
+        Vec3 diff = maxVertex - minVertex;
+        // add a small value
+        if(diff.x == 0){
+            maxVertex += Vec3(delSize, 0.0f, 0.0f);
+            minVertex -= Vec3(delSize, 0.0f, 0.0f);
+        }
+        if(diff.y == 0){
+            maxVertex += Vec3(0.0f, delSize, 0.0f);
+            minVertex -= Vec3(0.0f, delSize, 0.0f);
+        }
+        if(diff.z == 0){
+            maxVertex += Vec3(0.0f, 0.0f, delSize);
+            minVertex -= Vec3(0.0f, 0.0f, delSize);
+        }
+        
+        // expand bbox
+        bboxLeft.enclose(BBox(minVertex, maxVertex));
+    }
+    for(auto it = boundIt; it != end; it++){
+        // handle axis-aline triangle with 0 volumn bbox
+        Vec3 minVertex = it -> bbox().min;
+        Vec3 maxVertex = it -> bbox().max;
+        Vec3 diff = maxVertex - minVertex;
+        // add a small value
+        if(diff.x == 0){
+            maxVertex += Vec3(delSize, 0.0f, 0.0f);
+            minVertex -= Vec3(delSize, 0.0f, 0.0f);
+        }
+        if(diff.y == 0){
+            maxVertex += Vec3(0.0f, delSize, 0.0f);
+            minVertex -= Vec3(0.0f, delSize, 0.0f);
+        }
+        if(diff.z == 0){
+            maxVertex += Vec3(0.0f, 0.0f, delSize);
+            minVertex -= Vec3(0.0f, 0.0f, delSize);
+        }
+        
+        // expand bbox
+        bboxRight.enclose(BBox(minVertex, maxVertex));
+    }
+    
+    nodes[parentId].l = new_node(bboxLeft, nodes[parentId].start, (boundId - nodes[parentId].start), 0, 0);
+    nodes[parentId].r = new_node(bboxRight, boundId, (nodes[parentId].start + nodes[parentId].size - boundId), 0, 0);
+    
+    int nextLevel = (level + 1) % 3;    // record next level
+    
+    buildChild(nodes[parentId].l, prims, max_leaf_size, nextLevel);
+    buildChild(nodes[parentId].r, prims, max_leaf_size, nextLevel);
     
     return;
 }
@@ -257,17 +272,26 @@ template<typename Primitive> Trace BVH<Primitive>::hit(const Ray& ray, bool shad
     // The starter code simply iterates through all the primitives.
     // Again, remember you can use hit() on any Primitive value.
 
+//    Trace ret;
+//    for(const Primitive& prim : primitives) {
+//        Trace hit = prim.hit(ray);
+//        ret = Trace::min(ret, hit);
+//    }
+//    return ret;
+    
     Trace ret;
     size_t nodeId = root_idx;
     Vec2 hitTime;
-    
+
     if(nodes[nodeId].bbox.hit(ray, hitTime)){
         // recursively find cloest hit
         if(shadowRay){ printf("recursive search in bvh: \n"); }
         find_closest_hit(ray, nodeId, ret, shadowRay);
     }
-        
+
     return ret;
+    
+    
 }
 
 
@@ -294,23 +318,6 @@ void BVH<Primitive>::find_closest_hit(const Ray& ray, size_t nodeId, Trace& clos
             tempHit = primitives[countPrim].hit(ray);
             
             closestHit = Trace::min(closestHit, tempHit);   // return closest hit
-            
-            /*
-            if(!shadowRay){
-                // for forward tracing
-                closestHit = Trace::min(closestHit, tempHit);   // return closest hit
-                
-            }else{
-                if(tempHit.hit){
-                    // for detecting shadow ray
-                    closestHit = tempHit;   // only return it hit primitive
-                }
-                
-                closestHit = tempHit;
-                
-                //printf("node id: %zu, hit prim#: %zu, is hit: %d \n", nodeId, countPrim, tempHit.hit);
-            }
-            */
         }
 
     }else{
@@ -336,29 +343,22 @@ void BVH<Primitive>::find_closest_hit(const Ray& ray, size_t nodeId, Trace& clos
         }else if(hitleft && hitRight){
             // if both hit, go in both branch
             
-            // handle case when ray origin from inside of box
+            // handle case when ray origin from inside of box, negative tmin
             float leftTime, rightTime;
-            if(hitTimeLeft.x < 0){
-                leftTime = hitTimeLeft.y;
-            }else{
-                leftTime = hitTimeLeft.x;
-            }
             
-            if(hitTimeRight.x < 0){
-                rightTime = hitTimeRight.y;
-            }else{
-                rightTime = hitTimeRight.x;
-            }
+            leftTime = hitTimeLeft.x;
+            rightTime = hitTimeRight.x;
             
-            float minHitTime = fmin(leftTime, rightTime);
-                
             // compare min hit time
             size_t firstHitId = (leftTime <= rightTime) ? nodeId_Left : nodeId_Right;
             size_t secondHitId = (nodeId_Left == firstHitId) ? nodeId_Right : nodeId_Left;
-                        // update cloestHit
+            
+            float hitSecond = fmax(leftTime, rightTime);
+
+            // update cloestHit
             find_closest_hit(ray, firstHitId, closestHit);
             
-            if(!closestHit.hit || closestHit.distance > minHitTime){
+            if(!closestHit.hit || closestHit.distance > hitSecond){
                 // if not hit in first branch or actual hit time larger than expected
                 // go to second branch
                 find_closest_hit(ray, secondHitId, closestHit);

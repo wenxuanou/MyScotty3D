@@ -82,6 +82,6 @@ bool BBox::hit(const Ray& ray, Vec2& times) const {
     // store back in Vec2
     times.x = tmin;
     times.y = tmax;
-    
+        
     return true;
 }

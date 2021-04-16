@@ -20,8 +20,6 @@ Spectrum Pathtracer::trace_pixel(size_t x, size_t y) {
     // Tip: you may want to use log_ray for debugging
 
     // This currently generates a ray at the bottom left of the pixel every time.
-
-//    Ray out = camera.generate_ray(xy / wh);
     
     Samplers::Rect::Uniform sampler(Vec2(1.0f));
     float pdf;
@@ -71,10 +69,8 @@ Spectrum Pathtracer::trace_ray(const Ray& ray) {
     // The starter code sets radiance_out to (0.5,0.5,0.5) so that you can test your geometry
     // queries before you implement path tracing. You should change this to (0,0,0) and accumulate
     // the direct and indirect lighting computed below.
-    
-    Spectrum radiance_out = Spectrum(0.5f);
-    
-    //Spectrum radiance_out; // no light at the begining
+        
+    Spectrum radiance_out; // no light at the begining
     {
         auto sample_light = [&](const auto& light) {
             // If the light is discrete (e.g. a point light), then we only need
@@ -113,34 +109,24 @@ Spectrum Pathtracer::trace_ray(const Ray& ray) {
                 // This is because we're  doing another monte-carlo estimate of the lighting from
                 // area lights.
                 
-                /*
+                
                 // get shadow ray, origin at intersection, point to light source
                 Ray shadowRay = Ray(hit.position, sample.direction);
                 // set ray bound, use EPS_F avoid self intersection
                 shadowRay.dist_bounds = Vec2(EPS_F, sample.distance - EPS_F);
-//                shadowRay.dist_bounds = Vec2(EPS_F, sample.distance);
                 // check hit point
-                printf("check shadow start \n");
                 Trace shadowHit = scene.hit(shadowRay, true); // accumulate radiance if not hit object
-                printf("check shadow finish \n");
                 
                 // visualize ray
                 if(RNG::coin_flip(0.0005f)) log_ray(shadowRay, 10.0f);
                 
-                */
+                
                 
                 // accumulate radiance from each light source
                 radiance_out +=
-                    (cos_theta / (samples * sample.pdf)) * sample.radiance * attenuation;
-                
-//                radiance_out +=
-//                    (cos_theta / (samples * sample.pdf)) * (!shadowHit.hit) * sample.radiance * attenuation;
+                    (cos_theta / (samples * sample.pdf)) * (!shadowHit.hit) * sample.radiance * attenuation;
                 
             }
-            /*
-            printf("sample radiance: r: %f, g: %f, b: %f \n",
-                   radiance_out.r, radiance_out.g, radiance_out.b);
-            */
         };
 
         // If the BSDF is discrete (i.e. uses dirac deltas/if statements), then we are never

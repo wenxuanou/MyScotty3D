@@ -39,6 +39,9 @@ private:
         bool is_leaf() const;
         friend class BVH<Primitive>;
     };
+
+    // recursive bvh build
+    void buildChild(size_t parentId, std::vector<Primitive>& prims, size_t max_leaf_size, int level);
     
     // recursive find cloest hit
     void find_closest_hit(const Ray& ray, size_t nodeId, Trace& closestHit, bool shadowRay = false) const;

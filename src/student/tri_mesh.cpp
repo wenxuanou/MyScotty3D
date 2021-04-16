@@ -73,15 +73,9 @@ Trace Triangle::hit(const Ray& ray) const {
     // scalar is zero when d in same direction as e1
     // or cross(e1,d) perpendicular to e2,
     // basically when d is on plane span by e1 an e2
-    if(scalar < 0.0f){
-        return ret;
-
-    }else if(scalar == 0.0f){
-        scalar += EPS_F;    // add small value avoid infinity
-    }
     
-//    if(scalar <= 0.0f){ return ret; } 
-    
+    if(scalar == 0){ return ret; }
+        
     // proceed when intersect is possible
     scalar = 1.0f / scalar;
 
