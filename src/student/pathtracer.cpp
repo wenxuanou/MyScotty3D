@@ -120,8 +120,6 @@ Spectrum Pathtracer::trace_ray(const Ray& ray) {
                 // visualize ray
                 if(RNG::coin_flip(0.0005f)) log_ray(shadowRay, 10.0f);
                 
-                
-                
                 // accumulate radiance from each light source
                 radiance_out +=
                     (cos_theta / (samples * sample.pdf)) * (!shadowHit.hit) * sample.radiance * attenuation;
@@ -157,6 +155,10 @@ Spectrum Pathtracer::trace_ray(const Ray& ray) {
 
     // (5) Add contribution due to incoming light with proper weighting. Remember to add in
     // the BSDF sample emissive term.
+    
+    
+    
+    
     return radiance_out;
 }
 

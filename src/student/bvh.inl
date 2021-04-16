@@ -285,7 +285,6 @@ template<typename Primitive> Trace BVH<Primitive>::hit(const Ray& ray, bool shad
 
     if(nodes[nodeId].bbox.hit(ray, hitTime)){
         // recursively find cloest hit
-        if(shadowRay){ printf("recursive search in bvh: \n"); }
         find_closest_hit(ray, nodeId, ret, shadowRay);
     }
 
