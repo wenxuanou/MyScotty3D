@@ -55,7 +55,7 @@ Spectrum Pathtracer::trace_ray(const Ray& ray) {
     // normal become much easier. For example, cos(theta) = dot(N,dir) = dir.y!
     Mat4 object_to_world = Mat4::rotate_to(hit.normal);
     Mat4 world_to_object = object_to_world.T();
-    Vec3 out_dir = world_to_object.rotate(ray.point - hit.position).unit();
+    Vec3 out_dir = world_to_object.rotate(ray.point - hit.position).unit();     // out_dir in object space
 
     // Debugging: if the normal colors flag is set, return the normal color
     if(debug_data.normal_colors) return Spectrum::direction(hit.normal);
@@ -69,7 +69,9 @@ Spectrum Pathtracer::trace_ray(const Ray& ray) {
     // The starter code sets radiance_out to (0.5,0.5,0.5) so that you can test your geometry
     // queries before you implement path tracing. You should change this to (0,0,0) and accumulate
     // the direct and indirect lighting computed below.
-        
+    
+    
+    // sampling light
     Spectrum radiance_out; // no light at the begining
     {
         auto sample_light = [&](const auto& light) {
@@ -89,12 +91,8 @@ Spectrum Pathtracer::trace_ray(const Ray& ray) {
                 // This is another oppritunity to do Russian roulette on low-throughput rays,
                 // which would allow us to skip the shadow ray cast, increasing efficiency.
                 Spectrum attenuation = bsdf.evaluate(out_dir, in_dir);
-                if(attenuation.luma() == 0.0f) continue;
-
-                
-                
-                
-                
+                if(attenuation.luma() == 0.0f) continue;    // Spectrum.luma() ranges from 0 to 1
+      
                 // TODO (PathTracer): Task 4
                 // Construct a shadow ray and compute whether the intersected surface is
                 // in shadow. Only accumulate light if not in shadow.
@@ -158,8 +156,43 @@ Spectrum Pathtracer::trace_ray(const Ray& ray) {
     
     
     
+    // if ray reach max depth, early return
+    if(RNG::coin_flip( fmin((ray.depth * 1.0f) / (max_depth * 1.0f), 1) ) ){ return radiance_out;  }   // clip probability between 0 and 1
     
-    return radiance_out;
+    //if(ray.depth >= max_depth){ return radiance_out; }
+    
+    // if ray not reach max depth, select new ray direction
+    BSDF_Sample bsdfSample = bsdf.sample(out_dir);          // random bsdf sample at hit
+    
+    Spectrum radiance_indirect;                         // indirect radiance from other objects
+    
+    Vec3 newDir = bsdfSample.direction;                 // get bsdf sample direction in object space
+    newDir = object_to_world.rotate(newDir).unit();      // map to world space
+    float cos_theta = bsdfSample.direction.y;           // get cosine theta in object space for ease
+    
+    // build up new ray
+    Ray recurRay(hit.position, newDir);
+    recurRay.depth = ray.depth + 1;                     // increase depth
+    recurRay.throughput = ray.throughput * bsdfSample.attenuation * abs(cos_theta) / bsdfSample.pdf; // update throughput
+    recurRay.dist_bounds = Vec2(EPS_F, std::numeric_limits<float>::infinity()); // avoid intersect at 0
+    
+    
+    Spectrum terminateProbability = bsdfSample.attenuation * abs(cos_theta) / bsdfSample.pdf;
+    
+    float prrScale = 1.0f;
+    float prr = terminateProbability.luma() * prrScale;        // turn spectrum into float
+        
+    prr = fmin(0, fmax(prr, 1 - EPS_F));                               // cap between 0 and 1
+    
+    if(RNG::coin_flip(1.0f - prr)){
+        // ramdonly terminate
+        radiance_indirect = bsdfSample.emissive + trace_ray(recurRay) * bsdfSample.attenuation * abs(cos_theta) / (bsdfSample.pdf * (1.0f - prr));    // recursive call, include emission from other objects
+    }
+    
+
+    return radiance_out + radiance_indirect;
+    
+    //return radiance_out;
 }
 
 } // namespace PT
