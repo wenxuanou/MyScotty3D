@@ -153,16 +153,18 @@ Spectrum Pathtracer::trace_ray(const Ray& ray) {
 
     // (5) Add contribution due to incoming light with proper weighting. Remember to add in
     // the BSDF sample emissive term.
+
+        
+    // bsdf sample
+    BSDF_Sample bsdfSample = bsdf.sample(out_dir);          // random bsdf sample at hit
     
+    // collect emissive before max ray check and russian roulette
+    radiance_out += bsdfSample.emissive;
     
     
     // if ray reach max depth, early return
-    if(RNG::coin_flip( fmin((ray.depth * 1.0f) / (max_depth * 1.0f), 1) ) ){ return radiance_out;  }   // clip probability between 0 and 1
-    
-    //if(ray.depth >= max_depth){ return radiance_out; }
-    
-    // if ray not reach max depth, select new ray direction
-    BSDF_Sample bsdfSample = bsdf.sample(out_dir);          // random bsdf sample at hit
+//    if(RNG::coin_flip( fmin((ray.depth * 1.0f) / (max_depth * 1.0f), 1) ) ){ return radiance_out;  }   // clip probability between 0 and 1
+    if(ray.depth >= max_depth){ return radiance_out; }
     
     Spectrum radiance_indirect;                         // indirect radiance from other objects
     
@@ -179,20 +181,18 @@ Spectrum Pathtracer::trace_ray(const Ray& ray) {
     
     Spectrum terminateProbability = bsdfSample.attenuation * abs(cos_theta) / bsdfSample.pdf;
     
-    float prrScale = 1.0f;
+    float prrScale = 2.0f;                                     // tuning scalar of prr
     float prr = terminateProbability.luma() * prrScale;        // turn spectrum into float
         
-    prr = fmin(0, fmax(prr, 1 - EPS_F));                               // cap between 0 and 1
+    prr = fmin(0, fmax(prr, 1));                               // cap between 0 and 1
     
-    if(RNG::coin_flip(1.0f - prr)){
-        // ramdonly terminate
-        radiance_indirect = bsdfSample.emissive + trace_ray(recurRay) * bsdfSample.attenuation * abs(cos_theta) / (bsdfSample.pdf * (1.0f - prr));    // recursive call, include emission from other objects
-    }
+    // ramdonly terminate
+    if(RNG::coin_flip(prr)){ return radiance_out; }
     
-
+    radiance_indirect = trace_ray(recurRay) * bsdfSample.attenuation * abs(cos_theta) / (bsdfSample.pdf * (1.0f - prr));
+    // recursive call, include emission from other objects
+    
     return radiance_out + radiance_indirect;
-    
-    //return radiance_out;
 }
 
 } // namespace PT
