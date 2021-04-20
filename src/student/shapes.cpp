@@ -33,6 +33,9 @@ Trace Sphere::hit(const Ray& ray) const {
     ret.position = Vec3{}; // where was the intersection?
     ret.normal = Vec3{};   // what was the surface normal at the intersection?
     
+    
+    
+    
     // get ray origin and unit direction
     Vec3 o = ray.point;
     Vec3 d = ray.dir;
@@ -49,22 +52,19 @@ Trace Sphere::hit(const Ray& ray) const {
     
     // find the first intersection which within the dist_bound
     t = fmin(t_in, t_out);
-    if(t_in < ray.dist_bounds.x || t_in > ray.dist_bounds.y){ t = t_out; }
-    if(t_out < ray.dist_bounds.x || t_out > ray.dist_bounds.y){ t = t_in; }
-    
+    if(t_in < ray.dist_bounds.x || t_in > ray.dist_bounds.y){ t = t_out; }  // if t_in not in bound
+    if(t_out < ray.dist_bounds.x || t_out > ray.dist_bounds.y){ t = t_in; } // if t_out not in bound
+
     if(t < ray.dist_bounds.x || t > ray.dist_bounds.y){ return ret; }
-    
     
     // compute hit point
     Vec3 p = o + t * d; // sphere centered at zero
     
     // check whether hit point on sphere
-    //if(std::abs(p.norm() - radius) <= EPS_F){
-        ret.hit = true;
-        ret.distance = t;
-        ret.position = p;
-        ret.normal = p.unit();  // unit normal, sphere centered at origin
-    //}
+    ret.hit = true;
+    ret.distance = t;
+    ret.position = p;
+    ret.normal = p.unit();  // unit normal, sphere centered at origin
     
     return ret;
 }

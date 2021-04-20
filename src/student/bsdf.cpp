@@ -64,9 +64,9 @@ Vec3 refract(Vec3 out_dir, float index_of_refraction, bool& was_internal) {
     float cos_theta_t = sqrt(1.0f - sin_theta_t * sin_theta_t);
     cos_theta_t = (cos_theta_i > 0.0f)? (-1.0f * cos_theta_t) : (cos_theta_t);
     
-    Vec3 in_dir(-1.0f * out_dir.x * sin_theta_t,
+    Vec3 in_dir(-1.0f * out_dir.x * (sin_theta_t / sin_theta_i),
                                     cos_theta_t,
-                -1.0f * out_dir.z * sin_theta_t);
+                -1.0f * out_dir.z * (sin_theta_t / sin_theta_i));
     
     in_dir.normalize();
     return in_dir;

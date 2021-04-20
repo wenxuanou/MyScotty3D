@@ -28,7 +28,7 @@ Spectrum Pathtracer::trace_pixel(size_t x, size_t y) {
     Ray out = camera.generate_ray(xy_sampled / wh);
         
     // visualize ray
-    if(RNG::coin_flip(0.000005f)) log_ray(out, 10.0f);
+    if(RNG::coin_flip(0.0000005f)) log_ray(out, 10.0f);
     
     return trace_ray(out);
 }
@@ -116,7 +116,7 @@ Spectrum Pathtracer::trace_ray(const Ray& ray) {
                 Trace shadowHit = scene.hit(shadowRay, true); // accumulate radiance if not hit object
                 
                 // visualize ray
-                if(RNG::coin_flip(0.0005f)) log_ray(shadowRay, 10.0f);
+//                if(RNG::coin_flip(0.00005f)) log_ray(shadowRay, 10.0f);
                 
                 // accumulate radiance from each light source
                 radiance_out +=
@@ -191,6 +191,8 @@ Spectrum Pathtracer::trace_ray(const Ray& ray) {
     
     radiance_indirect = trace_ray(recurRay) * bsdfSample.attenuation * abs(cos_theta) / (bsdfSample.pdf * (1.0f - prr));
     // recursive call, include emission from other objects
+    
+    if(RNG::coin_flip(0.00005f)) log_ray(recurRay, 10.0f);
     
     return radiance_out + radiance_indirect;
 }
