@@ -66,7 +66,7 @@ struct Image {
     Vec3 sample(float& pdf) const;
 
     size_t w = 0, h = 0;
-    std::vector<float> pdf, cdf;
+    std::vector<float> pdf, cdf;    // i = row * w + col, size: W*H
     float total = 0.0f;
 };
 

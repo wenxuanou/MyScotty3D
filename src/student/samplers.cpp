@@ -33,8 +33,17 @@ Vec3 Sphere::Uniform::sample(float& pdf) const {
     // Generate a uniformly random point on the unit sphere (or equivalently, direction)
     // Tip: start with Hemisphere::Uniform
 
-    pdf = 1.0f; // what was the PDF at the chosen direction?
-    return Vec3();
+//    pdf = 1.0f; // what was the PDF at the chosen direction?
+    
+    Vec3 dir = hemi.sample(pdf);
+    
+    if(RNG::coin_flip(0.5f)){
+        dir *= Vec3(1.0f, -1.0f, 1.0f); // randomly choose upper or lower hemisphere
+    }
+    
+    pdf *= 0.5f;
+    
+    return dir;
 }
 
 Sphere::Image::Image(const HDR_Image& image) {
@@ -48,6 +57,38 @@ Sphere::Image::Image(const HDR_Image& image) {
     const auto [_w, _h] = image.dimension();
     w = _w;
     h = _h;
+    
+    float sin_theta;
+    
+    // find total luminance
+    for(size_t row = 0; row < h; row++){
+        for(size_t col = 0; col < w; col++){
+            // get sine theta
+            sin_theta = sin(row * PI_F / (1.0f * h)); // map index to radians, 0 to pi
+            
+            float temp = image.at(col, row).luma() * sin_theta;
+            total += temp;
+
+            pdf.push_back(temp);  // push back pdf for normalize
+            cdf.push_back(total);
+
+        }
+    }
+    
+    // normalize and fill up cdf
+    for(size_t i = 0; i < pdf.size(); i++){
+        pdf[i] = pdf[i] / total;
+        cdf[i] = cdf[i] / total;
+    }
+    
+    // debug
+    if(cdf[cdf.size() - 1] != 1){
+        printf("cdf error!! \n");
+        printf("cdf.size(): %zu, cdf[10]: %f \n", cdf.size(), cdf[10]);
+        printf("pdf.size(): %zu, pdf[10]: %f \n", pdf.size(), pdf[10]);
+    }
+    
+    return;
 }
 
 Vec3 Sphere::Image::sample(float& out_pdf) const {
@@ -56,8 +97,36 @@ Vec3 Sphere::Image::sample(float& out_pdf) const {
     // Use your importance sampling data structure to generate a sample direction.
     // Tip: std::upper_bound can easily binary search your CDF
 
-    out_pdf = 1.0f; // what was the PDF (again, PMF here) of your chosen sample?
-    return Vec3();
+//    out_pdf = 1.0f; // what was the PDF (again, PMF here) of your chosen sample?
+    
+    // get iterator
+    auto start = cdf.begin();
+    auto end = cdf.end();
+    // inverse sample random number from cdf
+    auto sampleIt = lower_bound(start, end, RNG::unit());   // value >= rand(0~1)
+    
+    if(sampleIt == end){
+        printf("inverse sampling error!!!\n");
+        return Vec3();
+    }
+    
+    size_t sampleId = distance(start, sampleIt);            // convert to index
+    
+    // get pdf
+    out_pdf = pdf[sampleId];
+    
+    // get 2D index
+    size_t col = sampleId % w;
+    size_t row = sampleId / w;
+    // convert to radians
+    float theta = row * PI_F / (1.0f * h);
+    float phi = col * (2.0f * PI_F) / (1.0f * h);
+    
+    Vec3 dir(cos(phi) * sin(theta),
+                        cos(theta),
+             sin(phi) * sin(theta));
+    
+    return dir;
 }
 
 Vec3 Point::sample(float& pmf) const {

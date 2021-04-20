@@ -9,4 +9,6 @@ Task 4:
 Task 5:
 - Fully implemented
 Task 6:
-- Mostly implemented, minor problem in refraction
+- Fully implemented
+Task 7:
+- Fully implemented
