@@ -231,7 +231,7 @@ void Manager::particles_edit_gui(Undo& undo, Scene_Particles& particles) {
     activate();
     ImGui::SliderFloat("Angle", &opt.angle, 0.0f, 180.0f, "%.2f");
     activate();
-    ImGui::DragFloat("Scale", &opt.scale, 0.01f, 0.0f, std::numeric_limits<float>::max(), "%.2f");
+    ImGui::DragFloat("Scale", &opt.scale, 0.01f, 0.01f, std::numeric_limits<float>::max(), "%.2f");
     activate();
     ImGui::DragFloat("Lifetime", &opt.lifetime, 0.01f, 0.0f, std::numeric_limits<float>::max(),
                      "%.2f");
@@ -531,7 +531,14 @@ void Manager::UIsidebar(Scene& scene, Undo& undo, float menu_height, Camera& cam
         ImGui::Text("Edit Scene");
         if(ImGui::Button("Open Scene")) load_scene(scene, undo, true);
         if(wrap_button("Export Scene")) write_scene(scene);
-        if(wrap_button("Settings")) settings_shown = true;
+        if(wrap_button("Clear")) {
+            std::vector<Scene_ID> ids;
+            scene.for_items([&](Scene_Item& item) { 
+                ids.push_back(item.id()); 
+            });
+            for(auto id : ids) undo.del_obj(id);
+            undo.bundle_last(ids.size());
+        }
 
         if(ImGui::Button("Import Objects")) {
             load_scene(scene, undo, false);
@@ -544,6 +551,7 @@ void Manager::UIsidebar(Scene& scene, Undo& undo, float menu_height, Camera& cam
             new_light_window = true;
             new_light_focus = true;
         }
+        
         ImGui::Separator();
     }
 
