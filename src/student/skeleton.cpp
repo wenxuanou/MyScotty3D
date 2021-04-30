@@ -69,12 +69,10 @@ Vec3 Skeleton::end_of(Joint* j) {
     // This should take into account Skeleton::base_pos.
     
     
-    // apply base position on th right, base first
-    Mat4 to_bind_transform = joint_to_bind(j) * Mat4::translate(base_pos);
-    Vec3 end_bind = to_bind_transform * (j->extent);    // TODO: check if this is correct
+    Vec3 bind_end;
+    bind_end = Mat4::translate(base_pos) * j->joint_to_bind() * (j->extent);
+    return bind_end;    // pure translation
     
-    // pure translation
-    return end_bind;
 }
 
 Vec3 Skeleton::posed_end_of(Joint* j) {
@@ -83,15 +81,12 @@ Vec3 Skeleton::posed_end_of(Joint* j) {
 
     // Return the posed position of the endpoint of joint j in object space.
     // This should take into account Skeleton::base_pos.
+
     
+    Vec3 posed_end;
+    posed_end = Mat4::translate(base_pos) * j->joint_to_posed() * (j->extent);
+    return posed_end;   // translation and rotation
     
-    // apply base position on th right, base first
-    Mat4 to_pose_transform = joint_to_posed(j) * Mat4::translate(base_pos);
-    Vec3 end_pose = to_pose_transform * (j->extent);
-    
-    
-    // translation and rotation
-    return end_pose;
 }
 
 Mat4 Skeleton::joint_to_bind(const Joint* j) const {
@@ -106,6 +101,9 @@ Mat4 Skeleton::joint_to_bind(const Joint* j) const {
     
     // return pure translation matrix
     return to_bind_transform;
+    
+    
+//    return Mat4::I;
 }
 
 Mat4 Skeleton::joint_to_posed(const Joint* j) const {
@@ -121,6 +119,8 @@ Mat4 Skeleton::joint_to_posed(const Joint* j) const {
     // return both translation and rotation
     return to_pose_transform;
     
+    
+//    return Mat4::I;
 }
 
 void Skeleton::find_joints(const GL::Mesh& mesh,
