@@ -30,7 +30,7 @@ public:
     bool is_root() const;
 
     // Current joint rotation Euler angles in degrees
-    Vec3 pose;
+    Vec3 pose;  // R = Rz * Ry * Rx
 
     // The vector representing the direction and length of the bone.
     // This is specified in Joint space, and defines the origin of child bones.
@@ -166,7 +166,7 @@ public:
     void restore_splines(const SSave& data);
 
 private:
-    Vec3 base_pos;
+    Vec3 base_pos;  // base position
     unsigned int root_id, next_id;
     std::unordered_set<Joint*> roots;
     std::unordered_map<Joint*, std::vector<IK_Handle*>> erased;
