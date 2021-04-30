@@ -175,6 +175,46 @@ void Joint::compute_gradient(Vec3 target, Vec3 current) {
 
     // Target is the position of the IK handle in skeleton space.
     // Current is the end position of the IK'd joint in skeleton space.
+    
+    
+    // initialize values
+    Vec3 p_theta = current;
+    Vec3 q = target;
+    
+    // difference between target and posed in skeleton space, (0,0,0) in joint space, vector
+    Vec3 p = target - joint_to_posed() * Vec3(0.0f);    // point to target
+    
+
+    Vec3 parent_angle_grad(0.0f);
+    
+    // check if have parent
+    // compute on parent first
+    if(parent != nullptr){
+        parent -> compute_gradient(target, current);
+        parent_angle_grad = parent -> angle_gradient;
+    }
+    
+    
+    
+    // accumulate parent gradient
+    angle_gradient = parent_angle_grad;
+    
+    // compute gradient on current
+    // do xyz separately
+    Vec3 r_x(1.0f, 0.0f, 0.0f),
+         r_y(0.0f, 1.0f, 0.0f),
+         r_z(0.0f, 0.0f, 1.0f);
+    
+    Vec3 J_theta_x = cross(r_x, p);     // rotate around x
+    Vec3 J_theta_y = cross(r_y, p);     // rotate around y
+    Vec3 J_theta_z = cross(r_z, p);     // rotate around z
+    
+    // add up by axis
+    angle_gradient.x = dot(J_theta_x, (p_theta - q)) - angle_gradient.x;    // subtract the gradient of parent
+    angle_gradient.y = dot(J_theta_y, (p_theta - q)) - angle_gradient.y;
+    angle_gradient.z = dot(J_theta_z, (p_theta - q)) - angle_gradient.z;
+    
+    
 }
 
 void Skeleton::step_ik(std::vector<IK_Handle*> active_handles) {
@@ -182,4 +222,27 @@ void Skeleton::step_ik(std::vector<IK_Handle*> active_handles) {
     // TODO(Animation): Task 2
 
     // Do several iterations of Jacobian Transpose gradient descent for IK
+    
+    // main loop
+    int maxIter = 50;
+    float alpht_timestep = 0.005f;
+    for(int iter = 0; iter < maxIter; iter++){
+        // iterate each handle
+        for(size_t id = 0; id < active_handles.size(); id++){
+            
+            Joint* j = active_handles[id]->joint;
+            Vec3 target = active_handles[id]->target;            // target position of joint, in skeleton space
+            Vec3 current = (j->joint_to_posed()) * (j->extent);   // current position of joint, in skeleton space
+            
+            j->compute_gradient(target, current);
+            
+            // update pose
+            j->pose -= alpht_timestep * j->angle_gradient;
+            j->angle_gradient = Vec3(0.0f); // reset gradient to 0
+            
+        }
+        
+        
+    }
+    
 }

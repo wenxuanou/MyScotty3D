@@ -58,7 +58,7 @@ private:
     std::unordered_set<Joint*> children;
 
     // Current angle gradient for IK
-    Vec3 angle_gradient;
+    Vec3 angle_gradient;    // not scaled by alpha, will do in stepping function
 
     // Call this function recursively on your parent. At each call, compute the angle gradient for
     // the joint corresponding to that call.
