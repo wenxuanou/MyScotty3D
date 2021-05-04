@@ -1,4 +1,3 @@
-
 #include "../scene/skeleton.h"
 
 Vec3 closest_on_line_segment(Vec3 start, Vec3 end, Vec3 point) {
@@ -6,7 +5,16 @@ Vec3 closest_on_line_segment(Vec3 start, Vec3 end, Vec3 point) {
     // TODO(Animation): Task 3
 
     // Return the closest point to 'point' on the line segment from start to end
-    return Vec3{};
+    // return location of the point on line
+    
+    Vec3 v1 = end - start;
+    Vec3 v2 = point - start;
+    // project of point on line
+    Vec3 proj = dot(v2, v1.unit()) * v1.unit();
+    
+    Vec3 point = proj + proj;   // TODO: check result
+    
+    return point;
 }
 
 Mat4 Joint::joint_to_bind() const {
@@ -132,15 +140,44 @@ void Skeleton::find_joints(const GL::Mesh& mesh,
     // that should effect the vertex at that index. A joint should effect a vertex
     // if it is within Joint::radius distance of the bone's line segment in bind position.
 
-    const std::vector<GL::Mesh::Vert>& verts = mesh.verts();
-    (void)verts;
+    const std::vector<GL::Mesh::Vert>& verts = mesh.verts();    // vector of vertices
 
     // For each i in [0, verts.size()), map[i] should contain the list of joints that
     // effect vertex i. Note that i is NOT Vert::id! i is the index in verts.
 
-    for_joints([&](Joint* j) {
-        // What vertices does joint j effect?
-    });
+    for(int i = 0; i < verts.size(); i ++){
+        
+        // TODO: check if coordinace space is correct
+        Vec3 v_pos = verts[i].pos;      // vertex position, assume in bind space,
+        
+        // TODO: check if this will be recycled
+        std::vector<Joint*> J_related;  // joint related to the vertex
+        
+        
+        // TODO: check if this working
+        // iterate all joints in skeleton
+        for_joints([&](Joint* j) {
+            // What vertices does joint j effect?
+           
+            // take vertex point back to joint space
+            Mat4 to_joint = joint_to_bind(j);           // only translation // TODO: check here
+            Vec3 v_posJoint = Mat4::inverse(to_joint) * v_pos;
+            // find distance to the cloest point on bone
+            Vec3 dist = v_pos - closest_on_line_segment(Vec3(0.0f), j->extent, v_posJoint);
+            
+            if(dist.norm() <= j->radius){
+                // include joint if in radius
+                J_related.push_back(j);
+            }
+        });
+        
+        
+        // create and insert element to map
+        map.emplace(i, J_related);  // TODO: check if this work
+//        map.insert((std::make_pair<unsigned int, std::vector<Joint*> >(i, J_related));
+    }
+    
+    
 }
 
 void Skeleton::skin(const GL::Mesh& input, GL::Mesh& output,
@@ -156,12 +193,58 @@ void Skeleton::skin(const GL::Mesh& input, GL::Mesh& output,
     // Currently, this just copies the input to the output without modification.
 
     std::vector<GL::Mesh::Vert> verts = input.verts();
+    
     for(size_t i = 0; i < verts.size(); i++) {
 
         // Skin vertex i. Note that its position is given in object bind space.
+        // need joint_to_bind
+        
+        Vec3 v_pos = verts[i].pos;              // current position
+        Vec3 v_norm = verts[i].norm;            // current norm
+        Vec3 v_posNew, v_normNew;               // new position and norm
+        
+        std::vector<Joint*> J_related = map[i]; // all related joint of this vertex
+        std::vector<float> weights;             // weigth buffer for each joint
+        float weight_sum = 0.0f;
+        
+        // compute weights
+        for(size_t countJ = 0; countJ < J_related.size(); countJ++){
+            
+            Joint* j = J_related[countJ];
+            
+            // map vertex position to joint position
+            Mat4 to_joint = joint_to_posed(j);   // include translation and rotation
+            Vec3 v_posJoint = Mat4::inverse(to_joint) * v_pos;
+            
+            // find distance to the cloest point on bone
+            Vec3 dist = v_pos - closest_on_line_segment(Vec3(0.0f), j->extent, v_posJoint);
+            
+            // weight of joint on vertex
+            float w = 1.0f / dist.norm();
+            weights.push_back(w);
+            weight_sum += w;
+        }
+        
+        // compute new vertex position
+        for(size_t countJ = 0; countJ < J_related.size(); countJ++){
+            
+            Joint* j = J_related[countJ];
+            
+            // map vertex position to joint position
+            Mat4 to_joint = joint_to_posed(j);   // include translation and rotation
+            Vec3 v_posJoint = Mat4::inverse(to_joint) * v_pos;
+            
+            // TODO: how to get vji?
+            float weight = weights[countJ] / weight_sum;
+            v_posNew = v_posNew + weight * to_joint * v_posJoint;
+            
+        }
+        
+        verts[i].pos = v_posNew;
+        
     }
 
-    std::vector<GL::Mesh::Index> idxs = input.indices();
+    std::vector<GL::Mesh::Index> idxs = input.indices();    // input vertex index, stay the same
     output.recreate(std::move(verts), std::move(idxs));
 }
 
