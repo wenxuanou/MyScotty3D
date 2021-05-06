@@ -154,8 +154,6 @@ void Skeleton::find_joints(const GL::Mesh& mesh,
     // effect vertex i. Note that i is NOT Vert::id! i is the index in verts.
 
     
-    printf("map is empty before find_joints: %d\n", map.empty());
-    
     for(size_t i = 0; i < verts.size(); i ++){
         
         // compare in bind space
