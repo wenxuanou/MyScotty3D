@@ -122,7 +122,7 @@ Vec3 Sphere::Image::sample(float& out_pdf) const {
     float theta = row * PI_F / (1.0f * h);
     float phi = col * (2.0f * PI_F) / (1.0f * h);
     
-    Vec3 dir((cos(phi) * sin(theta)), cos(theta), (sin(phi) * sin(theta)));
+    Vec3 dir((float)(cos(phi) * sin(theta)), (float)cos(theta), (float)(sin(phi) * sin(theta)));
     
     return dir;
 }
